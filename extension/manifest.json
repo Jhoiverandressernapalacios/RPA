@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "RPA DIAN - NIT automático",
+  "version": "1.0",
+  "description": "Escribe en la consulta de la DIAN el NIT que abre el robot (RPA DIAN). No pulsa ningún botón: la búsqueda la inicia la persona.",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://catalogo-vpfe.dian.gov.co/User/SearchDocument*",
+        "https://catalogo-vpfe.dian.gov.co/user/searchdocument*"
+      ],
+      "js": ["llenar_nit.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

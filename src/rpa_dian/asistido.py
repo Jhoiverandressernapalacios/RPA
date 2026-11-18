@@ -4,9 +4,11 @@ El robot no controla el navegador: abre la consulta en el navegador normal de la
 con el enlace oficial que ya trae el CUFE (Cloudflare valida solo) y vigila la carpeta de
 Descargas hasta que llega el PDF, que valida, mueve al proyecto y cronometra.
 
-En el navegador, la persona da una orden por página: puede escribir el NIT y pulsar
-"Buscar", "Descargar PDF" y "Aceptar" a mano, o pulsar el favorito "RPA DIAN"
-(docs/marcador-dian.html), que hace esos pasos en la página abierta cuando ella lo activa.
+En el navegador, la persona da una orden por página. Con la extensión "RPA DIAN - NIT
+automático" (carpeta extension/) la consulta abre con el CUFE y el NIT ya escritos y solo
+pulsa "Buscar" y luego "Descargar PDF" y "Aceptar"; sin la extensión, escribe el NIT a mano
+o pulsa el favorito "RPA DIAN" (docs/marcador-dian.html), que hace esos pasos en la página
+abierta cuando ella lo activa.
 No hay ciclos entre facturas dentro del navegador ni se toca el captcha: cada consulta la
 inicia una persona (ver docs/adr/0001-captcha-resuelto-por-persona.md).
 """
@@ -91,8 +93,9 @@ class ConsultorAsistido:
             self.copiar(consulta.nit)
         self.avisar(
             f"\nCUFE {consulta.cufe[:12]}…: se abrió la consulta en tu navegador.\n"
-            "  1. Pulsa el favorito 'RPA DIAN' (o escribe el NIT y pulsa 'Buscar').\n"
-            "  2. En el resultado, pulsa otra vez 'RPA DIAN' (o 'Descargar PDF' > 'Aceptar').\n"
+            "  1. Con el CUFE y el NIT escritos, espera el visto verde y pulsa 'Buscar'.\n"
+            "     (Sin la extensión de la carpeta extension/: pulsa el favorito 'RPA DIAN'.)\n"
+            "  2. En el resultado, espera el visto verde y pulsa 'Descargar PDF' > 'Aceptar'.\n"
             f"  Esperando el PDF en {self.carpeta_descargas} (máximo {self.espera_s:.0f} s)…"
         )
         ultimo_error, tamano_anterior = "", -1

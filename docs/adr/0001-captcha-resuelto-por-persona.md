@@ -43,6 +43,10 @@ Es automatización dentro del navegador de la persona, con estos límites, que l
 
 Encadenar facturas dentro del navegador (que el favorito abra la siguiente consulta) sí sería la alternativa rechazada abajo, y no se hace.
 
+### Adenda (2026-11-18): extensión "RPA DIAN - NIT automático"
+
+A pedido del usuario, para que la consulta abra con el CUFE **y el NIT** escritos (la página solo acepta el CUFE por el enlace), se agregó una extensión local de Chrome ([`extension/`](../../extension/)). Su script se ejecuta solo en `catalogo-vpfe.dian.gov.co/User/SearchDocument`, **escribe el NIT** del fragmento `#nit=…` en su campo y borra el fragmento. **No pulsa ningún botón ni toca el captcha**: equivale al autocompletado del navegador. La búsqueda y la descarga las sigue iniciando la persona, una por página, así que la decisión de este ADR se mantiene.
+
 ## Alternativas consideradas
 
 ### Ocultar la automatización para que Cloudflare valide solo

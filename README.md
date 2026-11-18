@@ -68,7 +68,14 @@ python -m rpa_dian extraer --consultas tests\fixtures\pdf\consultas.csv --entrad
 
 ### Modo asistido (recomendado)
 
-1. Una sola vez: abra [`docs/marcador-dian.html`](docs/marcador-dian.html) en Chrome y arrastre el botón **RPA DIAN** a la barra de favoritos.
+**Una sola vez, instale la extensión que escribe el NIT** (carpeta [`extension/`](extension/), sin dependencias externas):
+
+1. En Chrome, abra `chrome://extensions` y active **Modo de desarrollador** (arriba a la derecha).
+2. Pulse **Cargar descomprimida** y elija la carpeta `extension` del proyecto.
+
+Con la extensión, cada consulta abre con el **CUFE y el NIT ya escritos**: solo hay que esperar el visto verde de Cloudflare y pulsar **Buscar**, y en el resultado **Descargar PDF** y **Aceptar**. La extensión solo actúa en `catalogo-vpfe.dian.gov.co`, no pulsa botones ni toca el captcha.
+
+Alternativa sin extensión: abra [`docs/marcador-dian.html`](docs/marcador-dian.html) en Chrome y arrastre el botón **RPA DIAN** a la barra de favoritos.
 2. Ponga sus CUFE y NIT en `LISTADO_CUFE.xlsx` y ejecute `python -m rpa_dian`.
 3. Por cada factura, el robot abre la consulta en su navegador con el CUFE escrito. Pulse **RPA DIAN**: escribe el NIT, espera el visto verde de Cloudflare y busca. En el resultado, pulse **RPA DIAN** otra vez: descarga el PDF.
 4. El robot detecta el PDF en Descargas, lo valida, lo mueve a `output/pdf/`, mide el tiempo y sigue con la siguiente factura. Al final extrae todo y escribe el informe.
