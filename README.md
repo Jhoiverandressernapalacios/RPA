@@ -73,7 +73,7 @@ python -m rpa_dian extraer --consultas tests\fixtures\pdf\consultas.csv --entrad
 1. En Chrome, abra `chrome://extensions` y active **Modo de desarrollador** (arriba a la derecha).
 2. Pulse **Cargar descomprimida** y elija la carpeta `extension` del proyecto.
 
-Con la extensión, cada consulta abre con el **CUFE y el NIT ya escritos**: solo hay que esperar el visto verde de Cloudflare y pulsar **Buscar**, y en el resultado **Descargar PDF** y **Aceptar**. La extensión solo actúa en `catalogo-vpfe.dian.gov.co`, no pulsa botones ni toca el captcha.
+El robot abre las consultas en Chrome (no en el navegador predeterminado), porque ahí se instala la extensión; otro navegador se indica con la variable `RPA_NAVEGADOR_ASISTIDO` (ruta del ejecutable). Con la extensión, cada consulta abre con el **CUFE y el NIT ya escritos**: solo hay que esperar el visto verde de Cloudflare y pulsar **Buscar**, y en el resultado **Descargar PDF** y **Aceptar**. La extensión solo actúa en `catalogo-vpfe.dian.gov.co`, no pulsa botones ni toca el captcha.
 
 Alternativa sin extensión: abra [`docs/marcador-dian.html`](docs/marcador-dian.html) en Chrome y arrastre el botón **RPA DIAN** a la barra de favoritos.
 2. Ponga sus CUFE y NIT en `LISTADO_CUFE.xlsx` y ejecute `python -m rpa_dian`.

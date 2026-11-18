@@ -28,6 +28,12 @@ PAUSA_ENTRE_CONSULTAS_S = 5
 # Navegador para el bot. "msedge" usa el Edge instalado en Windows; "" usa el Chromium de
 # Playwright (no arrancó en el equipo de desarrollo: error de configuración en paralelo).
 CANAL_NAVEGADOR = os.environ.get("RPA_NAVEGADOR", "msedge")
+# Navegador normal donde el modo asistido abre las consultas (sin controlarlo). Por defecto
+# Chrome, donde se instala la extensión que escribe el NIT; si no existe, se usa el
+# navegador predeterminado de Windows.
+NAVEGADOR_ASISTIDO = os.environ.get(
+    "RPA_NAVEGADOR_ASISTIDO", r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+)
 
 DPI_IMAGEN = 300
 IDIOMA_OCR = "spa"

@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from rpa_dian import asistido
 from rpa_dian.asistido import ConsultorAsistido, buscar_pdf
 from rpa_dian.consultas import Consulta
 from rpa_dian.descarga import TiempoAgotado, descargar_todas
@@ -24,6 +25,27 @@ def escribir(ruta: Path, contenido: bytes = PDF_MINIMO, antiguedad_s: float = 0)
         marca = time.time() - antiguedad_s
         os.utime(ruta, (marca, marca))
     return ruta
+
+
+# --- abrir_en_navegador ---------------------------------------------------------
+
+
+def test_abre_la_consulta_en_el_navegador_configurado(tmp_path, monkeypatch):
+    navegador = tmp_path / "chrome.exe"
+    navegador.write_bytes(b"")
+    llamadas = []
+    monkeypatch.setattr(asistido.config, "NAVEGADOR_ASISTIDO", str(navegador))
+    monkeypatch.setattr(asistido.subprocess, "Popen", lambda args: llamadas.append(args))
+    asistido.abrir_en_navegador("https://catalogo-vpfe.dian.gov.co/x")
+    assert llamadas == [[str(navegador), "https://catalogo-vpfe.dian.gov.co/x"]]
+
+
+def test_sin_el_navegador_configurado_usa_el_predeterminado(tmp_path, monkeypatch):
+    abiertas = []
+    monkeypatch.setattr(asistido.config, "NAVEGADOR_ASISTIDO", str(tmp_path / "no-existe.exe"))
+    monkeypatch.setattr(asistido.webbrowser, "open", abiertas.append)
+    asistido.abrir_en_navegador("https://catalogo-vpfe.dian.gov.co/x")
+    assert abiertas == ["https://catalogo-vpfe.dian.gov.co/x"]
 
 
 # --- buscar_pdf -----------------------------------------------------------------

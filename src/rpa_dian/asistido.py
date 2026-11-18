@@ -48,6 +48,17 @@ def buscar_pdf(carpeta: Path, cufe: str, desde: float) -> Path | None:
     return max(candidatos, key=lambda r: r.stat().st_mtime, default=None)
 
 
+def abrir_en_navegador(url: str) -> None:
+    """Abre la URL en el navegador del modo asistido (Chrome por defecto, donde está la
+    extensión del NIT) o, si no está instalado, en el predeterminado. Solo lo abre: no lo
+    controla, así que Cloudflare valida el navegador normal de la persona."""
+    ejecutable = config.NAVEGADOR_ASISTIDO
+    if ejecutable and Path(ejecutable).is_file():
+        subprocess.Popen([ejecutable, url])  # lista de argumentos: sin intérprete de comandos
+    else:
+        webbrowser.open(url)
+
+
 def copiar_al_portapapeles(texto: str) -> None:
     """Portapapeles de Windows con `clip.exe` (sin dependencias extra)."""
     subprocess.run(["clip"], input=texto, text=True, check=True)
@@ -60,7 +71,7 @@ class ConsultorAsistido:
         self,
         carpeta_descargas: Path = config.DIR_DESCARGAS,
         espera_s: float = 300,
-        abrir_url: Callable[[str], object] = webbrowser.open,
+        abrir_url: Callable[[str], object] = abrir_en_navegador,
         copiar: Callable[[str], None] | None = None,
         avisar: Callable[[str], None] = print,
         dormir: Callable[[float], None] = time.sleep,
