@@ -10,3 +10,5 @@ Registro del tiempo empleado por tarea (lo pide la prueba: "Reporta los tiempos 
 | T3 Reconocimiento de la página DIAN | 2026-11-18 00:10 | 2026-11-18 00:40 | ~30 min | Incluye pruebas manuales en el navegador y la validación con una factura real |
 | T3b Migración a `consultas.csv` y ajuste de SPEC/plan | 2026-11-18 00:40 | 2026-11-18 00:46 | ~6 min | |
 | T4–T8 Extracción (fixtures, encabezado, tabla, OCR, CSV) | 2026-11-18 00:46 | 2026-11-18 01:18 | ~32 min | Incluye 3 ajustes tras probar con la factura real: cuadrícula por zona, OCR por celda y voto de números |
+| Análisis de la grabación de pantalla | 2026-11-18 01:18 | 2026-11-18 01:35 | ~17 min | Extracción de cuadros con OpenCV en un entorno temporal |
+| T9–T10 Bot automático + modo asistido + ADR | 2026-11-18 01:35 | 2026-11-18 02:08 | ~33 min | Prueba real: Cloudflare rechaza el navegador automatizado; se agrega el modo asistido |

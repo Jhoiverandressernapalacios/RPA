@@ -61,8 +61,10 @@ T1 Entorno ── T2 Esqueleto ──┬── T3 Reconocimiento DIAN ──┬�
 **Resultado con la factura real (2 productos, 7 campos cada uno):** 13 de 14 valores exactos. Falla el número de factura: el prefijo tiene tres "I" seguidas y el OCR lee solo dos. Las descripciones conservan los cortes de línea del PDF como espacios ("SMAR T TV").
 
 ### Fase 2: Descarga
-- [ ] T9: Bot: abrir la página, llenar el CUFE y esperar el captcha
-- [ ] T10: Bot: descargar el PDF, manejar errores y subcomando `descargar`
+- [x] T9: Bot: abrir la página, llenar el CUFE y esperar el captcha → Cloudflare rechaza el navegador automatizado aunque una persona marque la casilla ([ADR-0001](../docs/adr/0001-captcha-resuelto-por-persona.md))
+- [x] T10: Bot: descargar el PDF, manejar errores y subcomando `descargar` (modo automático, conservado como evidencia)
+- [x] T10b: Modo asistido (`descargar --modo asistido`, predeterminado): navegador normal + portapapeles + carpeta de Descargas
+- [ ] T10c: Corrida real del modo asistido con una factura del usuario
 
 ### Checkpoint 3: Descarga
 - [ ] Corrida real con los 10 CUFE (tú resuelves el captcha); cada uno termina en `ok`, `sin_resultado`, `error` o `timeout`
