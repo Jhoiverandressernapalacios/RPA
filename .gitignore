@@ -23,6 +23,24 @@ privado/
 *.mov
 *.webm
 
+# Por tipo de archivo: lo que podría ser una factura, un resultado o una captura real.
+# Solo se permiten los archivos sintéticos o sin datos personales.
+*.pdf
+!tests/fixtures/pdf/*.pdf
+*.csv
+!data/consultas.csv
+!tests/fixtures/pdf/consultas.csv
+*.png
+*.jpg
+*.jpeg
+*.gif
+!docs/evidencia/*.png
+*.xlsx
+*.mkv
+*.log
+.env
+.claude/
+
 # Sistema y editores
 .vscode/
 .idea/

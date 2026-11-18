@@ -10,6 +10,14 @@ name = "rpa-dian"
 version = "0.1.0"
 description = "Descarga facturas del catálogo DIAN por CUFE y extrae sus datos con OCR a CSV."
 requires-python = ">=3.12"
+dependencies = [
+    "playwright==1.65.2",
+    "pymupdf==2.1",
+    "pytesseract==0.3.13",
+    "pillow==13.0.0",
+    "pandas==3.1.1",
+    "numpy==2.5.5",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
