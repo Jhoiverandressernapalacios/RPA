@@ -1,0 +1,16 @@
+FACTURA ELECTRÓNICA DE VENTA
+Representación Gráfica
+Datos del Documento
+Código Único de Factura - CUFE :
+c099e84a2517ceb2bd2c3a12230f271da9362022ce80344e4c2e697ee0689b6b22f29ae7775b1af0847f516338052485
+Número de Factura:   SETT-1001
+Forma de pago:   Contado
+Fecha de Emisión:   14/03/2025
+Medio de Pago:   Efectivo
+Datos del Emisor / Vendedor
+Razón Social:   COMERCIALIZADORA DE EJEMPLO S.A.S
+Nit del Emisor:   900123456
+País:   Colombia
+Datos del Adquiriente / Comprador
+Nombre o Razón Social:   CLIENTE DE EJEMPLO
+Número Documento:   1000000001

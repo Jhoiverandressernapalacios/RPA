@@ -1,0 +1,21 @@
+{
+  "cufe": "c099e84a2517ceb2bd2c3a12230f271da9362022ce80344e4c2e697ee0689b6b22f29ae7775b1af0847f516338052485",
+  "nit_clave": "900123456",
+  "numero_factura": "SETT-1001",
+  "fecha_emision": "2025-03-14",
+  "nit_emisor": "900123456",
+  "productos": [
+    {
+      "codigo": "7701234567890",
+      "descripcion": "TELEVISOR DE EJEMPLO 50 PULGADAS LED SMART TV NEGRO UNIDAD",
+      "cantidad": 1.0,
+      "precio_unitario": 1260504.2
+    },
+    {
+      "codigo": "7700000099991",
+      "descripcion": "SOPORTE DE PARED PARA TV 32 A 55 PULGADAS",
+      "cantidad": 2.0,
+      "precio_unitario": 45378.15
+    }
+  ]
+}

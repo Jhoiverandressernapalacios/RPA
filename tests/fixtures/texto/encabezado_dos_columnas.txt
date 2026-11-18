@@ -1,0 +1,18 @@
+EJEMPLO - DATOS FICTICIOS - NO ES UNA FACTURA REAL
+
+FACTURA ELECTRÓNICA DE VENTA
+
+Representación Gráfica
+
+Datos del Documento
+
+Código Único de Factura - CUFE :
+7ffc405f15638d6f21525e03772a81a2368cebf41ddb761fe8e1ac74ccb4f1be4891657091d482a068fcf1f38149ee0b
+Número de Factura: FE-20250 Forma de pago: Contado
+Fecha de Emisión: 01/12/2024 Medio de Pago: Efectivo
+
+Datos del Emisor / Vendedor
+
+Razón Social: DISTRIBUIDORA FICTICIA LTDA
+Nit del Emisor: 800987654 País: Colombia
+Tipo de Contribuyente: Persona Jurídica Municipio / Ciudad: Ciudad de Ejemplo

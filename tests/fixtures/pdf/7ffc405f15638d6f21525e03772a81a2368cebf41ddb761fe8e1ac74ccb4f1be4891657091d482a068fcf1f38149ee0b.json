@@ -1,0 +1,27 @@
+{
+  "cufe": "7ffc405f15638d6f21525e03772a81a2368cebf41ddb761fe8e1ac74ccb4f1be4891657091d482a068fcf1f38149ee0b",
+  "nit_clave": "800987654",
+  "numero_factura": "FE-20250",
+  "fecha_emision": "2024-12-01",
+  "nit_emisor": "800987654",
+  "productos": [
+    {
+      "codigo": "PRD-001",
+      "descripcion": "RESMA PAPEL CARTA",
+      "cantidad": 12.5,
+      "precio_unitario": 18900.0
+    },
+    {
+      "codigo": "7709876543210",
+      "descripcion": "IMPRESORA MULTIFUNCIONAL DE EJEMPLO CON SISTEMA DE TINTA CONTINUA Y WIFI",
+      "cantidad": 1.0,
+      "precio_unitario": 1234567.89
+    },
+    {
+      "codigo": "SRV-10",
+      "descripcion": "SERVICIO DE INSTALACION",
+      "cantidad": 3.0,
+      "precio_unitario": 50000.0
+    }
+  ]
+}
