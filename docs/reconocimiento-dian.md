@@ -47,6 +47,28 @@ Fecha: 2026-11-18 · Página: `https://catalogo-vpfe.dian.gov.co/User/SearchDocu
 - La extracción (T7) debe abrir el PDF con el NIT como contraseña (`doc.authenticate(nit)`) antes de convertirlo en imagen.
 - Cada CUFE necesita su NIT tanto para la consulta como para abrir el PDF.
 
+## 4b. Observaciones de la grabación de pantalla (2026-11-18 00:45, 70 s)
+
+Grabación de una consulta manual en un navegador normal (la grabación no se versiona).
+
+| Momento | Qué pasa |
+|---|---|
+| 0–4 s | Página recién cargada: el widget de Turnstile ya muestra "¡Operación exitosa!" |
+| 6–14 s | Tras recargar, el widget muestra "Verificando…" sin que nadie haga clic |
+| 16 s | Pasa solo a "¡Operación exitosa!" (**~8–10 s después de cargar, sin interacción**) |
+| 32 s | **El campo NIT aparece solo después de escribir el CUFE** (está oculto al cargar) |
+| 42–44 s | Con CUFE + NIT y el widget en verde, "Buscar" lleva a `/Document/ShowDocumentToPublic` |
+| 46–48 s | **La página de resultado tiene su propio Turnstile**, que vuelve a "Verificando…" |
+| 50 s | "Descargar PDF" → aviso de contraseña → "Aceptar" |
+| 52–58 s | Como el widget de la página de resultado aún verificaba: **"El campo de seguridad no está completo. Por favor espere que se cargue la página."** |
+| 60–68 s | Con el widget en verde, la descarga funciona |
+
+**Implicaciones para el bot:**
+1. No hace falta hacer clic en el captcha: en un navegador normal Cloudflare lo valida solo. El bot debe **esperar** a que `cf-turnstile-response` tenga valor, tanto en el formulario como en la página de resultado.
+2. Escribir el CUFE primero y esperar a que el campo NIT sea visible antes de llenarlo.
+3. Antes de "Descargar PDF", esperar el token del segundo widget; si aparece el aviso "El campo de seguridad no está completo", aceptar, esperar y reintentar.
+4. Queda por comprobar si Cloudflare valida igual de solo en el navegador que controla Playwright (T9).
+
 ## 5. Decisión
 
 Propuesta (pendiente de aprobación):

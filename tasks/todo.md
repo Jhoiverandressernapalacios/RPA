@@ -179,7 +179,7 @@ Tamaños: XS = 1 archivo · S = 1-2 archivos · M = 3-5 archivos.
 
 ### T9: Bot: consulta y espera del captcha
 
-**Descripción:** `descarga.py` lee el CSV de consultas, abre Chromium visible con Playwright y, para cada fila: si el NIT está vacío, marca `requiere_nit` sin consultar; si no, entra a la página, llena `#DocumentKey` y `#SearchDocumentNit`, muestra en consola "Resuelve el captcha en el navegador" y espera hasta 180 s a que la página pase a `/Document/ShowDocumentToPublic`. La persona pulsa "Buscar" después del captcha, o el bot lo pulsa cuando `cf-turnstile-response` tenga valor. Una consulta a la vez, con una pausa entre consultas. **Primera comprobación:** si Turnstile deja pasar a una persona dentro del Chromium de Playwright; si no, se documenta y no se intenta ocultar la automatización.
+**Descripción:** `descarga.py` lee el CSV de consultas, abre Chromium visible con Playwright y, para cada fila: si el NIT está vacío, marca `requiere_nit` sin consultar; si no, entra a la página, llena `#DocumentKey`, espera a que `#SearchDocumentNit` sea visible (aparece después de escribir el CUFE), lo llena y espera hasta 180 s a que `input[name=cf-turnstile-response]` tenga valor; entonces pulsa "Buscar" y espera la página `/Document/ShowDocumentToPublic`. **Observación del usuario (video del 2026-11-18 00:45):** en un navegador normal Turnstile se valida solo en unos segundos y se pone en verde sin hacer clic (modo no interactivo de Cloudflare). Por eso el bot primero solo espera; si a los ~15 s el widget pide interacción, muestra en consola "Completa la verificación en el navegador" y sigue esperando a la persona. El bot nunca hace clic en el widget ni manipula el token. Una consulta a la vez, con una pausa entre consultas. **Primera comprobación:** si Turnstile deja pasar a una persona dentro del Chromium de Playwright; si no, se documenta y no se intenta ocultar la automatización.
 
 **Criterios de aceptación:**
 - [ ] Con una factura de `privado/consultas.csv`, el bot llega a la pantalla de resultado después de que resuelves el captcha
@@ -197,7 +197,7 @@ Tamaños: XS = 1 archivo · S = 1-2 archivos · M = 3-5 archivos.
 
 ### T10: Bot: descarga del PDF, errores y subcomando `descargar`
 
-**Descripción:** Desde la pantalla de resultado, pulsar "Descargar PDF", aceptar el aviso de contraseña y capturar la descarga con `page.expect_download()` como `output/pdf/<CUFE>.pdf`. Detectar y marcar `sin_resultado` (el CUFE no existe) y `error` (red o página caída). Agregar el subcomando `descargar` en `__main__.py`.
+**Descripción:** Desde la pantalla de resultado, **esperar a que su propio Turnstile tenga token**, pulsar "Descargar PDF", aceptar el aviso de contraseña y capturar la descarga con `page.expect_download()` como `output/pdf/<CUFE>.pdf`. Si aparece "El campo de seguridad no está completo", aceptar, esperar el token y reintentar (máximo 3 veces). Ver [grabación](../docs/reconocimiento-dian.md#4b-observaciones-de-la-grabación-de-pantalla-2026-11-18-0045-70-s). Detectar y marcar `sin_resultado` (el CUFE no existe) y `error` (red o página caída). Agregar el subcomando `descargar` en `__main__.py`.
 
 **Criterios de aceptación:**
 - [ ] Cada CUFE termina en un estado: `ok`, `sin_resultado`, `error` o `timeout`

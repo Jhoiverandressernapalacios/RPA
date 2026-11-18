@@ -18,6 +18,11 @@ privado/
 *.docx
 ~$*
 
+# Grabaciones de pantalla (pueden mostrar facturas reales)
+*.mp4
+*.mov
+*.webm
+
 # Sistema y editores
 .vscode/
 .idea/
