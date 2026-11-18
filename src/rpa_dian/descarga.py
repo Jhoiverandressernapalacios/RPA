@@ -135,7 +135,8 @@ class ConsultorDian:
         self.pagina = pagina
         self.espera_captcha = espera_captcha
         self._descargas: list = []
-        pagina.on("download", self._descargas.append)
+        # Playwright necesita una función de Python; no acepta métodos nativos como list.append.
+        pagina.on("download", lambda descarga: self._descargas.append(descarga))
 
     def consultar(self, consulta: Consulta, carpeta: Path, tiempos: dict[str, float]) -> Path:
         from playwright.sync_api import TimeoutError as PlaywrightTimeout
