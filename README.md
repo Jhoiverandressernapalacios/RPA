@@ -37,7 +37,17 @@ $env:TESSDATA_PREFIX = "C:\ruta\a\tessdata"   # carpeta que contiene spa.trained
 
 ## Uso
 
-**Entrada:** un CSV con columnas `cufe,nit` ([`data/consultas.csv`](data/consultas.csv) trae los 10 CUFE de la prueba con el NIT vacío). El NIT es el del emisor o receptor, sin puntos ni dígito de verificación.
+**Entrada: el Excel `LISTADO_CUFE.xlsx`** en la raíz del proyecto, una factura por fila:
+
+| CUFE | NIT | Estado |
+|---|---|---|
+| (96 caracteres hexadecimales) | NIT del emisor o receptor (con o sin puntos y dígito de verificación) | Lo escribe el robot |
+
+- El robot lo lee de arriba abajo y consulta **una factura a la vez**.
+- **La columna Estado es la memoria del proceso.** Apenas termina cada factura, el robot escribe ahí cómo quedó: `Descargado`, `Validado` (descargada y extraída) o `Pendiente: …` con el motivo. En la siguiente corrida **salta las filas que dicen `Validado`** y continúa con las demás; si el proceso se interrumpe, retoma donde quedó.
+- Si la columna Estado no existe, el robot la crea. Cierre el Excel mientras el robot corre: Windows no deja escribir en un archivo abierto (el robot avisa y sigue).
+- `LISTADO_CUFE.xlsx` no se sube a GitHub (`*.xlsx` está en `.gitignore`): un CUFE con su NIT permite descargar la factura del portal público.
+- Si no existe `LISTADO_CUFE.xlsx`, el proceso usa [`data/consultas.csv`](data/consultas.csv) (columnas `cufe,nit`), que trae los 10 CUFE de la prueba con el NIT vacío. Cualquier otro archivo se indica con `--consultas`.
 
 | Comando | Qué hace |
 |---|---|
@@ -59,7 +69,7 @@ python -m rpa_dian extraer --consultas tests\fixtures\pdf\consultas.csv --entrad
 ### Modo asistido (recomendado)
 
 1. Una sola vez: abra [`docs/marcador-dian.html`](docs/marcador-dian.html) en Chrome y arrastre el botón **RPA DIAN** a la barra de favoritos.
-2. Ponga sus CUFE y NIT en `privado/consultas.csv` y ejecute `python -m rpa_dian --consultas privado\consultas.csv`.
+2. Ponga sus CUFE y NIT en `LISTADO_CUFE.xlsx` y ejecute `python -m rpa_dian`.
 3. Por cada factura, el robot abre la consulta en su navegador con el CUFE escrito. Pulse **RPA DIAN**: escribe el NIT, espera el visto verde de Cloudflare y busca. En el resultado, pulse **RPA DIAN** otra vez: descarga el PDF.
 4. El robot detecta el PDF en Descargas, lo valida, lo mueve a `output/pdf/`, mide el tiempo y sigue con la siguiente factura. Al final extrae todo y escribe el informe.
 
@@ -70,7 +80,7 @@ output/
 ├── pdf/<CUFE>.pdf            PDF descargados (cifrados con el NIT)
 ├── img/<CUFE>_p<N>.png       Páginas a 300 dpi
 ├── csv/<CUFE>.csv            Un DataFrame por factura: una fila por producto
-├── csv/consolidado.csv       Todas las facturas
+├── csv/consolidado.csv       Todas las facturas, también las de corridas anteriores
 └── metricas/
     ├── descargas.csv         Estado y tiempos de cada consulta
     ├── metricas.csv          Tiempos por etapa y precisión del OCR por factura
@@ -99,7 +109,7 @@ consultas.csv ─► descarga (asistida o automática) ─► PDF cifrado
 
 | Módulo | Responsabilidad |
 |---|---|
-| `consultas.py` | Lee y limpia el CSV `cufe,nit` |
+| `consultas.py` | Lee y valida el listado (Excel `LISTADO_CUFE.xlsx` o CSV) y escribe la columna Estado (memoria) |
 | `asistido.py` | Modo asistido: abre la consulta oficial, vigila Descargas, valida y mueve el PDF |
 | `descarga.py` | Estados (`ok`, `requiere_nit`, `sin_resultado`, `timeout`, `error`), tiempos y bot automático con Playwright |
 | `conversion.py` | Abre el PDF cifrado con el NIT y lo convierte a PNG |
@@ -129,4 +139,4 @@ consultas.csv ─► descarga (asistida o automática) ─► PDF cifrado
 
 Las facturas reales usadas para validar el proceso nunca se versionan: `privado/`, `output/`, los `.docx`, las grabaciones de pantalla y, por tipo, los PDF, CSV e imágenes fuera de las carpetas de ejemplo están en `.gitignore`.
 
-**Ponga los NIT reales en `privado/consultas.csv`**, nunca en `data/consultas.csv` (versionado): un CUFE junto con su NIT basta para descargar la factura del portal público. Una prueba falla si `data/consultas.csv` tiene algún NIT. El NIT viaja al navegador en el fragmento `#nit=…` del enlace (no se envía en la petición HTTP y el favorito lo borra de la barra de direcciones, aunque puede quedar en el historial del navegador). El portapapeles no se usa. Las pruebas usan solo facturas ficticias generadas por [`scripts/generar_pdf_ejemplo.py`](scripts/generar_pdf_ejemplo.py). El informe muestra solo los primeros 12 caracteres de cada CUFE y ningún dato del comprador.
+**Ponga los NIT reales en `LISTADO_CUFE.xlsx` o en `privado/`**, nunca en `data/consultas.csv` (versionado): un CUFE junto con su NIT basta para descargar la factura del portal público. Una prueba falla si `data/consultas.csv` tiene algún NIT. El NIT viaja al navegador en el fragmento `#nit=…` del enlace (no se envía en la petición HTTP y el favorito lo borra de la barra de direcciones, aunque puede quedar en el historial del navegador). El portapapeles no se usa. Las pruebas usan solo facturas ficticias generadas por [`scripts/generar_pdf_ejemplo.py`](scripts/generar_pdf_ejemplo.py). El informe muestra solo los primeros 12 caracteres de cada CUFE y ningún dato del comprador.

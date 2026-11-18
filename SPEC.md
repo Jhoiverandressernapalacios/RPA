@@ -235,6 +235,12 @@ Se aprobó el SPEC con las propuestas por defecto:
 3. Se reportan los tiempos del proceso (métricas) y el tiempo de desarrollo por tarea.
 4. Una fila por producto con el encabezado repetido.
 
+## Cambio de alcance (2026-11-18, pedido del usuario)
+
+- **Entrada en Excel:** `LISTADO_CUFE.xlsx` (columnas CUFE, NIT, Estado; fuera de Git) es la entrada por defecto cuando existe; `data/consultas.csv` sigue como alternativa. Dependencia nueva: `openpyxl`.
+- **Memoria en la columna Estado:** el robot escribe el estado de cada fila apenas la termina (`Descargado`, `Validado`, `Pendiente: …`) y en la siguiente corrida salta las filas `Validado`. El consolidado acumula las facturas de todas las corridas.
+- **Código comentado en español:** todas las funciones y clases tienen su explicación (docstring) en español.
+
 ## Preguntas abiertas
 
 1. **Instalar Python 3.12 y Tesseract con winget:** pendiente de autorización (tarea 1 del plan).
