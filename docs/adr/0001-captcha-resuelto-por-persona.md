@@ -27,6 +27,22 @@ Se divide la descarga en tres partes:
 2. **Modo automático (`descargar --modo automatico`), conservado como evidencia.** El bot con Playwright recorre todo el flujo (CUFE, NIT que aparece después, espera del captcha en el formulario y en el resultado, "Descargar PDF", aviso de contraseña, reintentos). Nunca interactúa con el widget del captcha: solo espera su respuesta. Su resultado real es el del punto 3 del contexto.
 3. **Recomendación para producción.** Para un proceso real a escala no se debe usar la página pública: la DIAN expone servicios web SOAP para facturadores y proveedores tecnológicos habilitados (servicio `WcfDianCustomerServices`, p. ej. la operación `GetStatus`, que consulta el estado de un documento por su identificador), con autenticación WS-Security. No pasan por el captcha porque el acceso se controla con credenciales. Detalle técnico en los anexos de la DIAN (ver Referencias); habría que confirmar las operaciones disponibles y los requisitos de habilitación en el anexo técnico vigente antes de implementarlo.
 
+### Adenda (2026-11-18): favorito "RPA DIAN" en el modo asistido
+
+Para reducir el trabajo manual se agregó un favorito de navegador (bookmarklet, [`docs/marcador-dian.html`](../marcador-dian.html)). Lo que hace, sin rodeos:
+
+- **En el formulario:** escribe el NIT que el robot puso en el fragmento `#nit=…` del enlace, espera a que Turnstile tenga respuesta y hace clic en "Buscar".
+- **En el resultado:** espera la respuesta del segundo Turnstile y hace clic en "Descargar PDF" y "Aceptar".
+
+Es automatización dentro del navegador de la persona, con estos límites, que lo hacen compatible con la decisión:
+
+1. **Una orden humana por página.** Solo actúa cuando la persona lo pulsa; no hay ciclos entre facturas ni ejecución desatendida. Cada consulta la inicia una persona frente al navegador, que es lo que el captcha comprueba.
+2. **No toca el captcha.** No interactúa con el widget ni con su respuesta; solo espera a que Cloudflare la emita.
+3. **No se oculta.** Los clics del script son eventos sintéticos (`isTrusted = false`) que la página puede distinguir.
+4. **Solo funciona en `catalogo-vpfe.dian.gov.co`** y borra el NIT de la barra de direcciones al leerlo (puede quedar en el historial del navegador).
+
+Encadenar facturas dentro del navegador (que el favorito abra la siguiente consulta) sí sería la alternativa rechazada abajo, y no se hace.
+
 ## Alternativas consideradas
 
 ### Ocultar la automatización para que Cloudflare valide solo

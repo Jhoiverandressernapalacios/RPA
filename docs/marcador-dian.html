@@ -27,7 +27,7 @@
     <li><strong>En el formulario</strong> que abre el robot (CUFE ya escrito): pulsa el favorito. Escribe el NIT, espera el visto verde de Cloudflare y pulsa "Buscar".</li>
     <li><strong>En el resultado</strong>: pulsa el favorito otra vez. Espera el visto verde, pulsa "Descargar PDF" y "Aceptar".</li>
   </ol>
-  <p>El favorito solo actúa cuando tú lo pulsas, una vez por página. El NIT lo toma de la parte <code>#nit=…</code> del enlace, que el navegador no envía a la DIAN.</p>
+  <p>El favorito solo actúa cuando tú lo pulsas, una vez por página, y solo en <code>catalogo-vpfe.dian.gov.co</code>. No toca el captcha: espera a que Cloudflare lo valide. El NIT lo toma de la parte <code>#nit=…</code> del enlace, que no viaja en la petición a la DIAN, y la borra de la barra de direcciones al leerla. El enlace original puede quedar en el historial del navegador.</p>
 </main>
 
 <script type="text/plain" id="fuente">
@@ -48,9 +48,15 @@
       return b.offsetParent && patron.test(b.innerText);
     });
   };
+  if (location.hostname !== 'catalogo-vpfe.dian.gov.co') {
+    alert('RPA DIAN: este favorito solo funciona en catalogo-vpfe.dian.gov.co');
+    return;
+  }
   var ruta = location.pathname.toLowerCase();
   if (ruta.indexOf('/user/searchdocument') >= 0) {
     var nit = location.hash.match(/nit=(\d+)/);
+    // Quita el NIT de la barra de direcciones (y del historial de esta pestaña).
+    history.replaceState(null, '', location.pathname + location.search);
     var campo = document.getElementById('SearchDocumentNit');
     if (nit && campo) {
       campo.value = nit[1];

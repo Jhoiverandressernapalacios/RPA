@@ -12,3 +12,7 @@ Registro del tiempo empleado por tarea (lo pide la prueba: "Reporta los tiempos 
 | T4–T8 Extracción (fixtures, encabezado, tabla, OCR, CSV) | 2026-11-18 00:46 | 2026-11-18 01:18 | ~32 min | Incluye 3 ajustes tras probar con la factura real: cuadrícula por zona, OCR por celda y voto de números |
 | Análisis de la grabación de pantalla | 2026-11-18 01:18 | 2026-11-18 01:35 | ~17 min | Extracción de cuadros con OpenCV en un entorno temporal |
 | T9–T10 Bot automático + modo asistido + ADR | 2026-11-18 01:35 | 2026-11-18 02:08 | ~33 min | Prueba real: Cloudflare rechaza el navegador automatizado; se agrega el modo asistido |
+| Modo asistido: enlace oficial con CUFE y favorito de un clic | 2026-11-18 02:08 | 2026-11-18 02:45 | ~37 min | Incluye pruebas con el usuario |
+| T11–T12 Métricas, informe y comando completo | 2026-11-18 02:45 | 2026-11-18 03:02 | ~17 min | |
+| T13–T14 Revisión de código y seguridad, README, informe y respuestas | 2026-11-18 03:02 | 2026-11-18 03:20 | ~18 min | 2 agentes de revisión; 21 hallazgos aplicados |
+| **Total registrado** | 2026-11-17 23:51 | 2026-11-18 03:20 | **~3 h 30 min** | Más el análisis inicial, la especificación y el plan (sin hora registrada) |
