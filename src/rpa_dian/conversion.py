@@ -6,6 +6,9 @@ import pymupdf
 
 from rpa_dian import config
 
+MAX_PAGINAS = 10
+MAX_LADO_PT = 2000  # ~70 cm; una hoja carta mide 792 pt de alto
+
 
 class PdfProtegidoError(Exception):
     """El PDF no se pudo abrir con el NIT indicado."""
@@ -16,7 +19,7 @@ def abrir_pdf(ruta: Path, nit: str) -> pymupdf.Document:
     documento = pymupdf.open(ruta)
     if documento.needs_pass and not documento.authenticate(nit):
         documento.close()
-        raise PdfProtegidoError(f"El NIT indicado no abre el PDF {ruta.name}")
+        raise PdfProtegidoError(f"El NIT indicado no abre el PDF {ruta.name[:12]}…")
     return documento
 
 
@@ -25,6 +28,11 @@ def pdf_a_imagenes(ruta: Path, nit: str, carpeta: Path, dpi: int = config.DPI_IM
     carpeta.mkdir(parents=True, exist_ok=True)
     rutas = []
     with abrir_pdf(ruta, nit) as documento:
+        # Límites contra PDF anómalos: una factura tiene pocas páginas de tamaño carta/A4.
+        if documento.page_count > MAX_PAGINAS:
+            raise ValueError(f"El PDF tiene {documento.page_count} páginas (máximo {MAX_PAGINAS})")
+        if any(max(p.rect.width, p.rect.height) > MAX_LADO_PT for p in documento):
+            raise ValueError("El PDF tiene páginas de tamaño anómalo")
         for numero, pagina in enumerate(documento, start=1):
             destino = carpeta / f"{ruta.stem}_p{numero}.png"
             pagina.get_pixmap(dpi=dpi).save(destino)

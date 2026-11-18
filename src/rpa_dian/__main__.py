@@ -14,15 +14,16 @@ from pathlib import Path
 from rpa_dian import config
 from rpa_dian.asistido import ConsultorAsistido
 from rpa_dian.consultas import leer_consultas
-from rpa_dian.conversion import PdfProtegidoError, capa_de_texto
+from rpa_dian.conversion import capa_de_texto
 from rpa_dian.descarga import (
     Resultado,
     abrir_navegador,
     descargar_todas,
+    detalle_seguro,
     guardar_resultados,
     leer_resultados,
 )
-from rpa_dian.exportacion import exportar
+from rpa_dian.exportacion import exportar, guardar_csv_seguro
 from rpa_dian.metricas import generar_informe, tabla_metricas
 from rpa_dian.proceso import Factura, procesar_pdf
 
@@ -69,44 +70,56 @@ def extraer(
     Si se indica `metricas`, escribe ahí metricas.csv e informe.md; usa los resultados de
     la descarga (descargas.csv en esa carpeta) cuando existen.
     """
-    facturas, capas = [], {}
-    for consulta in leer_consultas(consultas):
+    lista = leer_consultas(consultas)
+    facturas, capas, fallos = [], {}, {}
+    for consulta in lista:
         pdf = entrada / f"{consulta.cufe}.pdf"
         if not consulta.nit:
             log.info("%s… sin NIT: no se puede abrir el PDF", consulta.cufe[:12])
-        elif not pdf.is_file():
+            continue
+        if not pdf.is_file():
             log.info("%s… sin PDF en %s", consulta.cufe[:12], entrada)
-        else:
-            try:
-                factura = procesar_pdf(pdf, consulta.nit, imagenes)
-            except PdfProtegidoError as error:
-                log.warning("%s… %s", consulta.cufe[:12], error)
-                continue
-            log.info(
-                "%s… factura %s: %d productos en %.1f s",
-                consulta.cufe[:12],
-                factura.encabezado.numero_factura or "?",
-                len(factura.productos),
-                factura.tiempos["total"],
-            )
-            facturas.append(factura)
+            continue
+        try:  # una factura con problemas no detiene las demás
+            factura = procesar_pdf(pdf, consulta.nit, imagenes)
             capas[factura.cufe] = capa_de_texto(pdf, consulta.nit)
+        except Exception as error:
+            fallos[consulta.cufe] = detalle_seguro(error, consulta.cufe)
+            log.warning("%s… error de extracción: %s", consulta.cufe[:12], fallos[consulta.cufe])
+            continue
+        log.info(
+            "%s… factura %s: %d productos en %.1f s",
+            consulta.cufe[:12],
+            factura.encabezado.numero_factura or "?",
+            len(factura.productos),
+            factura.tiempos["total"],
+        )
+        facturas.append(factura)
     rutas = exportar(facturas, salida)
     log.info("%d facturas extraídas; CSV en %s", len(facturas), rutas[-1].parent)
     if metricas is not None:
-        _escribir_metricas(metricas, facturas, capas)
+        _escribir_metricas(metricas, {c.cufe for c in lista}, facturas, capas, fallos)
     return facturas
 
 
-def _escribir_metricas(carpeta: Path, facturas: list[Factura], capas: dict[str, str]) -> None:
+def _escribir_metricas(
+    carpeta: Path,
+    cufes: set[str],
+    facturas: list[Factura],
+    capas: dict[str, str],
+    fallos: dict[str, str],
+) -> None:
     carpeta.mkdir(parents=True, exist_ok=True)
     descargas = carpeta / "descargas.csv"
-    resultados = leer_resultados(descargas) if descargas.is_file() else []
-    tabla_metricas(resultados, facturas, capas).to_csv(
-        carpeta / "metricas.csv", index=False, encoding="utf-8-sig"
+    # Solo las descargas de estas consultas: la carpeta puede tener una corrida anterior.
+    resultados = [
+        r for r in (leer_resultados(descargas) if descargas.is_file() else []) if r.cufe in cufes
+    ]
+    guardar_csv_seguro(
+        tabla_metricas(resultados, facturas, capas, fallos), carpeta / "metricas.csv"
     )
-    informe = carpeta / "informe.md"
-    informe.write_text(generar_informe(resultados, facturas, capas), encoding="utf-8")
+    informe = generar_informe(resultados, facturas, capas, fallos=fallos)
+    (carpeta / "informe.md").write_text(informe, encoding="utf-8")
     log.info("Métricas e informe en %s", carpeta)
 
 

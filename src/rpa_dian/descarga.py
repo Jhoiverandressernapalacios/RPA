@@ -7,6 +7,7 @@ humano"; la marca una persona en la ventana y el bot continúa solo.
 
 import csv
 import logging
+import re
 import time
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
@@ -92,11 +93,20 @@ def _consultar_una(consulta: Consulta, consultor: Consultor, carpeta: Path) -> R
         resultado = Resultado(consulta.cufe, TIMEOUT, str(error), tiempos=tiempos)
     except Exception as error:  # el proceso sigue con el siguiente CUFE
         log.exception("Error inesperado con %s…", consulta.cufe[:12])
-        detalle = f"{type(error).__name__}: {error}"
+        detalle = detalle_seguro(error, consulta.cufe)
         resultado = Resultado(consulta.cufe, ERROR, detalle, tiempos=tiempos)
     tiempos["total"] = time.monotonic() - inicio
     log.info("%s… %s %s", consulta.cufe[:12], resultado.estado, resultado.detalle)
     return resultado
+
+
+def detalle_seguro(error: Exception, cufe: str = "") -> str:
+    """Mensaje de error para los CSV de evidencia: sin rutas locales (traen el usuario de
+    Windows) ni CUFE completos, y sin caracteres que Excel tome como fórmula."""
+    mensaje = f"{type(error).__name__}: {error}"
+    mensaje = re.sub(r"[0-9a-f]{96}", lambda m: m.group()[:12] + "…", mensaje)
+    mensaje = re.sub(r"[A-Za-z]:\\[^\s'\"]+", "<ruta>", mensaje)
+    return mensaje[:200]
 
 
 def guardar_resultados(resultados: Sequence[Resultado], ruta: Path) -> Path:
@@ -107,7 +117,8 @@ def guardar_resultados(resultados: Sequence[Resultado], ruta: Path) -> Path:
         escritor.writerow(["cufe", "estado", "detalle", "pdf", *(f"t_{e}" for e in ETAPAS)])
         for r in resultados:
             tiempos = [f"{r.tiempos[e]:.1f}" if e in r.tiempos else "" for e in ETAPAS]
-            escritor.writerow([r.cufe, r.estado, r.detalle, r.pdf or "", *tiempos])
+            detalle = "'" + r.detalle if r.detalle[:1] in ("=", "+", "-", "@") else r.detalle
+            escritor.writerow([r.cufe, r.estado, detalle, r.pdf or "", *tiempos])
     return ruta
 
 
@@ -243,7 +254,13 @@ class ConsultorDian:
         return " | ".join(t.strip() for t in textos if t.strip())
 
 
+MAX_BYTES_PDF = 20 * 1024 * 1024  # una representación gráfica pesa decenas de KB
+
+
 def validar_pdf(ruta: Path) -> None:
+    """Rechaza lo que no empieza como PDF o es desproporcionadamente grande."""
+    if ruta.stat().st_size > MAX_BYTES_PDF:
+        raise ValueError(f"{ruta.name[:12]}… pesa más de 20 MB: no es una factura")
     with ruta.open("rb") as archivo:
         if archivo.read(5) != b"%PDF-":
-            raise ValueError(f"{ruta.name} no es un PDF válido")
+            raise ValueError(f"{ruta.name[:12]}… no es un PDF válido")

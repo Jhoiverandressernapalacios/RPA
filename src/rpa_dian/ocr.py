@@ -86,9 +86,13 @@ def leer_numero(imagen: Image.Image, caja: Caja) -> str:
     """Lee un valor numérico a varias escalas y vota el resultado carácter por carácter.
 
     Medido en una factura real: cada escala confundía un dígito distinto (4/9, 6/0), pero
-    nunca la mayoría el mismo. El orden de ESCALAS_NUMERO decide los empates.
+    nunca la mayoría el mismo. El orden de ESCALAS_NUMERO decide los empates. Si las dos
+    primeras lecturas coinciden, la tercera no cambiaría el voto y se omite.
     """
-    return votar_numero([leer_celda(imagen, caja, True, e) for e in ESCALAS_NUMERO])
+    lecturas = [leer_celda(imagen, caja, True, e) for e in ESCALAS_NUMERO[:2]]
+    if votar_numero(lecturas[:1]) != votar_numero(lecturas[1:]):
+        lecturas.append(leer_celda(imagen, caja, True, ESCALAS_NUMERO[2]))
+    return votar_numero(lecturas)
 
 
 def limpiar_bordes(celda: Image.Image, franja: int = 8) -> Image.Image:

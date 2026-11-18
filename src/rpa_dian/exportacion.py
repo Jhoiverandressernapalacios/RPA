@@ -62,5 +62,21 @@ def exportar(facturas: Iterable[Factura], carpeta: Path) -> list[Path]:
 
 
 def _guardar(tabla: pd.DataFrame, ruta: Path) -> Path:
-    tabla.to_csv(ruta, index=False, encoding="utf-8-sig")
+    guardar_csv_seguro(tabla, ruta)
     return ruta
+
+
+def guardar_csv_seguro(tabla: pd.DataFrame, ruta: Path) -> None:
+    """CSV en UTF-8 con BOM (Excel) y sin fórmulas: los textos vienen del OCR de documentos
+    de terceros, y un valor que empieza por = + - @ se ejecutaría como fórmula en Excel."""
+    segura = tabla.copy()
+    for columna in segura.columns:
+        if not pd.api.types.is_numeric_dtype(segura[columna]):
+            segura[columna] = segura[columna].map(neutralizar_formula)
+    segura.to_csv(ruta, index=False, encoding="utf-8-sig")
+
+
+def neutralizar_formula(valor):
+    if isinstance(valor, str) and valor[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + valor
+    return valor

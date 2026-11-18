@@ -68,6 +68,20 @@ def test_detecta_los_campos_mal_leidos():
     assert aciertos["fecha_emision"] == (1, 1)
 
 
+def test_un_valor_que_solo_aparece_dentro_de_otro_numero_no_cuenta_como_acierto():
+    capa = CAPA_DE_TEXTO.replace("1,00", "21,00")
+    aciertos = verificar_factura(factura(), capa)
+    assert aciertos["cantidad"] == (0, 1)
+
+
+def test_un_codigo_o_descripcion_de_un_caracter_no_cuenta_como_acierto():
+    leida = factura(codigo="7")
+    leida.productos[0] = Producto("7", "D", 1.0, 1260504.2)
+    aciertos = verificar_factura(leida, CAPA_DE_TEXTO)
+    assert aciertos["codigo"] == (0, 1)
+    assert aciertos["descripcion"] == (0, 1)
+
+
 def test_sin_capa_de_texto_no_se_puede_verificar():
     assert verificar_factura(factura(), "") is None
 

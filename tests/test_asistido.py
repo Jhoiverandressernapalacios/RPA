@@ -42,12 +42,31 @@ def test_acepta_el_nombre_que_pone_chrome_cuando_el_archivo_ya_existia(tmp_path)
     assert buscar_pdf(tmp_path, CUFE, desde) == nuevo
 
 
+def test_ignora_un_pdf_vacio_o_con_una_descarga_parcial_al_lado(tmp_path):
+    desde = time.time() - 1
+    escribir(tmp_path / f"{CUFE}.pdf", contenido=b"")
+    assert buscar_pdf(tmp_path, CUFE, desde) is None
+    escribir(tmp_path / f"{CUFE}.pdf")
+    escribir(tmp_path / f"{CUFE}.pdf.part", contenido=b"...")
+    assert buscar_pdf(tmp_path, CUFE, desde) is None
+
+
 def test_ignora_descargas_viejas_de_otros_cufe_y_las_incompletas(tmp_path):
     desde = time.time() - 1
     escribir(tmp_path / f"{CUFE}.pdf", antiguedad_s=3600)
     escribir(tmp_path / f"{OTRO_CUFE}.pdf")
     escribir(tmp_path / f"{CUFE}.pdf.crdownload")
+    escribir(tmp_path / f"{CUFE}-otra-cosa.pdf")
     assert buscar_pdf(tmp_path, CUFE, desde) is None
+
+
+def test_puede_dejar_el_nit_en_el_portapapeles_si_se_pide(carpetas):
+    descargas, salida = carpetas
+    persona = PersonaSimulada(descargas)
+    consultor = consultor_con(persona)
+    consultor.copiar = persona.copiar
+    consultor.consultar(Consulta(CUFE, "900123456"), salida, {})
+    assert persona.portapapeles == ["900123456"]
 
 
 # --- ConsultorAsistido ------------------------------------------------------------
@@ -80,7 +99,6 @@ def consultor_con(persona: PersonaSimulada, espera_s: float = 60) -> ConsultorAs
         carpeta_descargas=persona.descargas,
         espera_s=espera_s,
         abrir_url=persona.abrir,
-        copiar=persona.copiar,
         avisar=persona.avisos.append,
         dormir=persona.dormir,
     )
@@ -93,16 +111,16 @@ def carpetas(tmp_path):
     return descargas, salida
 
 
-def test_abre_el_enlace_oficial_con_el_cufe_y_deja_el_nit_en_el_portapapeles(carpetas):
+def test_abre_el_enlace_oficial_con_el_cufe_y_el_nit_en_el_fragmento(carpetas):
     descargas, salida = carpetas
     persona = PersonaSimulada(descargas)
     tiempos: dict[str, float] = {}
     pdf = consultor_con(persona).consultar(Consulta(CUFE, "900123456"), salida, tiempos)
-    # El NIT va después de "#": el navegador no lo envía a la DIAN; lo lee el botón de favoritos.
+    # El NIT va después de "#": no viaja en la petición HTTP; lo lee el favorito.
     assert persona.urls == [
         f"https://catalogo-vpfe.dian.gov.co/User/SearchDocument?DocumentKey={CUFE}#nit=900123456"
     ]
-    assert persona.portapapeles == ["900123456"]
+    assert persona.portapapeles == []  # el portapapeles es opcional
     assert pdf == salida / f"{CUFE}.pdf"
     assert pdf.read_bytes() == PDF_MINIMO
     assert not (descargas / f"{CUFE}.pdf").exists()
@@ -116,11 +134,20 @@ def test_si_el_pdf_no_llega_a_tiempo_queda_en_timeout(carpetas):
         consultor_con(persona, espera_s=0).consultar(Consulta(CUFE, "1"), salida, {})
 
 
-def test_rechaza_un_archivo_que_no_es_pdf(carpetas):
+def test_si_el_archivo_no_es_pdf_sigue_esperando_y_luego_avisa(carpetas):
     descargas, salida = carpetas
     persona = PersonaSimulada(descargas, contenido=b"<html>error</html>")
-    with pytest.raises(ValueError, match="no es un PDF"):
-        consultor_con(persona).consultar(Consulta(CUFE, "1"), salida, {})
+    with pytest.raises(TiempoAgotado, match="no es un PDF"):
+        consultor_con(persona, espera_s=2).consultar(Consulta(CUFE, "1"), salida, {})
+    assert (descargas / f"{CUFE}.pdf").exists()  # no se mueve un archivo inválido
+
+
+def test_espera_a_que_el_pdf_termine_de_escribirse(carpetas):
+    descargas, salida = carpetas
+    persona = PersonaSimulada(descargas)
+    escribir(descargas / f"{CUFE}.pdf", contenido=b"%PDF-1.7\n")  # a medio escribir
+    pdf = consultor_con(persona).consultar(Consulta(CUFE, "1"), salida, {})
+    assert pdf.read_bytes().startswith(b"%PDF-")
 
 
 def test_funciona_con_la_misma_logica_de_estados_que_el_bot_automatico(carpetas):

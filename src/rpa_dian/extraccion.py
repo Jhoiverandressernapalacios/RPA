@@ -11,6 +11,7 @@ import unicodedata
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import date
 
 log = logging.getLogger(__name__)
 
@@ -89,7 +90,11 @@ def _fecha_emision(texto: str) -> str:
         log.warning("No se encontró la fecha de emisión")
         return ""
     dia, mes, anio = (int(p.translate(_CORRECCION_DIGITOS)) for p in coincidencia.groups())
-    return f"{anio:04d}-{mes:02d}-{dia:02d}"
+    try:
+        return date(anio, mes, dia).isoformat()
+    except ValueError:
+        log.warning("Fecha de emisión imposible: %02d/%02d/%04d", dia, mes, anio)
+        return ""
 
 
 def _nit_emisor(texto: str) -> str:
@@ -136,7 +141,6 @@ class Producto:
 
 _COLUMNAS = ("nro", "codigo", "descripcion", "um", "cantidad", "precio", "descuento")
 _OBLIGATORIAS = ("nro", "codigo", "descripcion", "cantidad", "precio")
-_FIN_DE_TABLA = ("anticipos", "notas", "hoja")
 
 
 def extraer_productos(
@@ -191,6 +195,9 @@ def ubicar_celdas(
     if tabla is None:
         return []
     columnas, filas, _ = tabla
+    if any(math.isnan(columnas[c][0]) for c in _CELDAS):
+        log.warning("Cuadrícula incompleta: se usan las palabras sueltas")
+        return []
     return [
         {c: (columnas[c][0], arriba, columnas[c][1], abajo) for c in _CELDAS}
         for arriba, abajo in filas
@@ -247,16 +254,30 @@ def _ubicar_tabla(
 
 
 def _fin_de_tabla(palabras: Sequence[Palabra], anclas: dict[str, Palabra]) -> float:
-    """y donde empieza la primera sección posterior a la tabla (Anticipos, Notas, Hoja)."""
+    """y donde empieza lo que sigue a la tabla: el título "Anticipos", "Notas Finales" o el
+    pie "Hoja N de M". Una palabra igual dentro de una descripción no cuenta."""
     inicio = max(a.y1 for a in anclas.values())
+    alto_tipico = anclas["codigo"].alto
     return min(
-        (
-            w.y0
-            for w in palabras
-            if w.y0 > inicio and _normalizar(w.texto).startswith(_FIN_DE_TABLA)
-        ),
+        (w.y0 for w in palabras if w.y0 > inicio and _es_fin(w, palabras, alto_tipico)),
         default=math.inf,
     )
+
+
+def _es_fin(palabra: Palabra, palabras: Sequence[Palabra], alto_tipico: float) -> bool:
+    nombre = _normalizar(palabra.texto)
+    if nombre == "anticipos":  # título de sección: letra más grande que la tabla
+        return palabra.alto >= 1.3 * alto_tipico
+    if nombre not in ("notas", "hoja"):
+        return False
+    siguientes = sorted(
+        (w for w in palabras if w.x0 > palabra.x1 and abs(w.yc - palabra.yc) < 0.5 * palabra.alto),
+        key=lambda w: w.x0,
+    )
+    if not siguientes:
+        return False
+    siguiente = _normalizar(siguientes[0].texto)
+    return siguiente == "finales" if nombre == "notas" else siguiente.isdigit()
 
 
 def _filas_por_cuadricula(

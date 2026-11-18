@@ -5,6 +5,7 @@ referencia de la factura, pero la prueba pide extraer de las imágenes, así que
 solo se usa para medir, nunca para extraer.
 """
 
+import re
 from collections import Counter
 from collections.abc import Sequence
 from datetime import datetime
@@ -56,8 +57,18 @@ def verificar_factura(factura: Factura, capa_de_texto: str) -> Verificacion | No
     referencia = extraer_encabezado(capa_de_texto)
     compacta = "".join(capa_de_texto.split()).upper()
 
-    def esta(texto: str) -> int:
-        return int(bool(texto) and "".join(texto.split()).upper() in compacta)
+    def esta_texto(texto: str) -> int:
+        """Código o descripción (sin espacios: el PDF los parte en varias líneas). Menos de
+        4 caracteres no prueba nada: aparecería en cualquier factura."""
+        limpio = "".join(texto.split()).upper()
+        return int(len(limpio) >= 4 and limpio in compacta)
+
+    def esta_numero(valor: float | None) -> int:
+        """El número completo, no dentro de otro: '1,00' no cuenta si solo aparece '21,00'."""
+        if valor is None:
+            return 0
+        patron = rf"(?<![\d.,]){re.escape(formato_colombiano(valor))}(?![\d,])"
+        return int(re.search(patron, capa_de_texto) is not None)
 
     resultado: Verificacion = {
         campo: (int(bool(valor) and valor == getattr(referencia, campo)), 1)
@@ -65,14 +76,10 @@ def verificar_factura(factura: Factura, capa_de_texto: str) -> Verificacion | No
     }
     por_producto = {"codigo": [], "descripcion": [], "cantidad": [], "precio_unitario": []}
     for p in factura.productos:
-        por_producto["codigo"].append(esta(p.codigo))
-        por_producto["descripcion"].append(esta(p.descripcion))
-        por_producto["cantidad"].append(
-            esta(formato_colombiano(p.cantidad)) if p.cantidad is not None else 0
-        )
-        por_producto["precio_unitario"].append(
-            esta(formato_colombiano(p.precio_unitario)) if p.precio_unitario is not None else 0
-        )
+        por_producto["codigo"].append(esta_texto(p.codigo))
+        por_producto["descripcion"].append(esta_texto(p.descripcion))
+        por_producto["cantidad"].append(esta_numero(p.cantidad))
+        por_producto["precio_unitario"].append(esta_numero(p.precio_unitario))
     for campo, aciertos in por_producto.items():
         resultado[campo] = (sum(aciertos), len(aciertos))
     return resultado
@@ -92,12 +99,21 @@ def precision_por_campo(verificaciones: Sequence[Verificacion]) -> dict[str, flo
 
 
 def tabla_metricas(
-    resultados: Sequence[Resultado], facturas: Sequence[Factura], capas: dict[str, str]
+    resultados: Sequence[Resultado],
+    facturas: Sequence[Factura],
+    capas: dict[str, str],
+    fallos: dict[str, str] | None = None,
 ) -> pd.DataFrame:
-    """Una fila por consulta: estado y tiempos de descarga + tiempos y precisión de extracción."""
+    """Una fila por consulta: estado y tiempos de descarga + tiempos y precisión de extracción.
+
+    `fallos` (CUFE -> motivo) son las facturas cuya extracción falló: quedan registradas
+    con estado `error_extraccion` en vez de desaparecer.
+    """
+    fallos = fallos or {}
     por_cufe = {f.cufe: f for f in facturas}
+    descargados = {r.cufe for r in resultados}
     estados = [(r.cufe, r) for r in resultados]
-    estados += [(c, None) for c in por_cufe if c not in {r.cufe for r in resultados}]
+    estados += [(c, None) for c in [*por_cufe, *fallos] if c not in descargados]
     filas = []
     for cufe, resultado in estados:
         fila: dict = {"cufe": cufe}
@@ -106,6 +122,8 @@ def tabla_metricas(
             fila |= {f"t_{e}": resultado.tiempos.get(e) for e in ETAPAS}
         else:
             fila |= {"estado": "solo_extraccion", "detalle": ""}
+        if cufe in fallos:
+            fila |= {"estado": "error_extraccion", "detalle": fallos[cufe]}
         factura = por_cufe.get(cufe)
         if factura:
             verificacion = verificar_factura(factura, capas.get(cufe, ""))
@@ -130,10 +148,11 @@ def generar_informe(
     facturas: Sequence[Factura],
     capas: dict[str, str],
     titulo: str = "Informe de ejecución",
+    fallos: dict[str, str] | None = None,
 ) -> str:
     """Informe en Markdown. Muestra solo los primeros 12 caracteres de cada CUFE y ningún
     dato de producto ni del comprador."""
-    tabla = tabla_metricas(resultados, facturas, capas)
+    tabla = tabla_metricas(resultados, facturas, capas, fallos)
     verificaciones = [
         v for f in facturas if (v := verificar_factura(f, capas.get(f.cufe, ""))) is not None
     ]
@@ -147,6 +166,7 @@ def generar_informe(
         "",
         f"- Consultas: {len(resultados)}",
         f"- Facturas extraídas: {len(facturas)}",
+        f"- Facturas con error de extracción: {len(fallos or {})}",
         f"- Productos extraídos: {sum(len(f.productos) for f in facturas)}",
         "",
         "### Estados de la descarga",

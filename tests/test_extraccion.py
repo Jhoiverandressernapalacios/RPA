@@ -50,6 +50,11 @@ def test_el_nit_queda_sin_puntos_sin_digito_de_verificacion_y_con_o_corregidas_a
     assert encabezado.nit_emisor == "900123456"
 
 
+@pytest.mark.parametrize("fecha", ["14/13/2025", "31/02/2025", "00/01/2025"])
+def test_una_fecha_imposible_queda_vacia(fecha):
+    assert extraer_encabezado(f"Fecha de Emisión: {fecha}\n").fecha_emision == ""
+
+
 def test_un_campo_que_no_aparece_queda_vacio_sin_romper_el_proceso():
     encabezado = extraer_encabezado("Datos del Documento\nNúmero de Factura: FE-1\n")
     assert encabezado == Encabezado(numero_factura="FE-1", fecha_emision="", nit_emisor="")
@@ -165,7 +170,13 @@ FILA_2 = [
     p("$", 445, 140),
     p("50.000,00", 470, 140),
 ]
-DESPUES_DE_LA_TABLA = [p("Anticipos", 100, 250), p("44.000,00", 380, 270), p("9", 20, 270)]
+# "Anticipos" es el título de la sección siguiente: letra más grande que la tabla (en la
+# factura real mide 39 px contra 23 px del encabezado de la tabla).
+DESPUES_DE_LA_TABLA = [
+    Palabra("Anticipos", 100, 250, 172, 280),
+    p("44.000,00", 380, 290),
+    p("9", 20, 290),
+]
 
 PRODUCTO_1 = Producto(
     codigo="7701234567890",
@@ -265,6 +276,27 @@ def test_la_zona_de_la_tabla_va_del_encabezado_hasta_la_seccion_anticipos():
 
 def test_sin_encabezado_de_tabla_no_hay_zona():
     assert zona_tabla([p("Hola", 0, 0)]) is None
+
+
+def test_con_cuadricula_incompleta_no_ubica_celdas_con_bordes_desconocidos():
+    palabras = ENCABEZADO_TABLA + FILA_1 + FILA_2 + DESPUES_DE_LA_TABLA
+    # Faltan los bordes de U/M, Cantidad y Precio: esas columnas no se pueden recortar.
+    assert ubicar_celdas(palabras, LINEAS_HORIZONTALES, [0, 50, 120, 300]) == []
+
+
+@pytest.mark.parametrize("palabra", ["HOJAS", "NOTAS", "Hoja", "Anticipos"])
+def test_una_palabra_de_la_descripcion_no_corta_la_tabla(palabra):
+    fila_1 = [w for w in FILA_1 if w.texto != "UNIDAD"] + [p(palabra, 180, 95)]
+    palabras = ENCABEZADO_TABLA + fila_1 + FILA_2 + DESPUES_DE_LA_TABLA
+    productos = extraer_productos(palabras, LINEAS_HORIZONTALES, LINEAS_VERTICALES)
+    assert len(productos) == 2
+    assert productos[0].descripcion.endswith(palabra)
+
+
+def test_hoja_n_de_m_al_pie_si_marca_el_fin_de_la_tabla():
+    pie = [p("Hoja", 500, 250), p("1", 540, 250), p("de", 555, 250), p("2", 580, 250)]
+    palabras = ENCABEZADO_TABLA + FILA_1 + FILA_2 + pie + [p("9", 20, 270)]
+    assert zona_tabla(palabras) == (4, 250)
 
 
 def test_sin_cuadricula_no_ubica_celdas():

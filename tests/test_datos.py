@@ -7,7 +7,9 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 RUTA_CONSULTAS = RAIZ / "data" / "consultas.csv"
 PATRON_CUFE = re.compile(r"^[0-9a-f]{96}$")
-PATRON_NIT = re.compile(r"^\d*$")
+# data/consultas.csv está versionado: nunca debe llevar NIT reales (CUFE + NIT permiten
+# descargar la factura del portal público). Los NIT reales van en privado/consultas.csv.
+PATRON_NIT = re.compile(r"^$")
 
 
 def leer_filas() -> list[dict[str, str]]:
@@ -37,7 +39,7 @@ def test_cada_cufe_tiene_96_caracteres_hexadecimales():
     assert invalidos == []
 
 
-def test_el_nit_esta_vacio_o_solo_tiene_digitos():
+def test_el_archivo_versionado_no_tiene_nit():
     invalidos = [fila["nit"] for fila in leer_filas() if not PATRON_NIT.match(fila["nit"])]
     assert invalidos == []
 

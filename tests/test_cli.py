@@ -42,13 +42,55 @@ def leer_consolidado(tmp_path: Path) -> pd.DataFrame:
 
 
 def test_sigue_sin_romperse_cuando_falta_el_pdf_o_el_nit_o_el_nit_no_abre_el_pdf(tmp_path):
-    cufe_real = next(FIXTURES.glob("*.pdf")).stem
+    cufe_ejemplo = next(FIXTURES.glob("*.pdf")).stem
     consultas = escribir_consultas(
         tmp_path / "consultas.csv",
-        [("f" * 96, "900123456"), ("e" * 96, ""), (cufe_real, "111")],
+        [("f" * 96, "900123456"), ("e" * 96, ""), (cufe_ejemplo, "111")],
     )
     assert ejecutar_extraer(tmp_path, consultas) == 0
     assert leer_consolidado(tmp_path).empty
+
+
+def test_un_pdf_corrupto_no_detiene_la_extraccion_y_queda_en_las_metricas(tmp_path):
+    entrada = tmp_path / "pdf"
+    entrada.mkdir()
+    (entrada / f"{'c' * 96}.pdf").write_bytes(b"%PDF-1.7 esto no es un PDF de verdad")
+    consultas = escribir_consultas(tmp_path / "consultas.csv", [("c" * 96, "900123456")])
+    codigo = main(
+        [
+            "extraer",
+            "--consultas",
+            str(consultas),
+            "--entrada",
+            str(entrada),
+            "--salida",
+            str(tmp_path / "csv"),
+            "--imagenes",
+            str(tmp_path / "img"),
+            "--metricas",
+            str(tmp_path / "metricas"),
+        ]
+    )
+    assert codigo == 0
+    assert leer_consolidado(tmp_path).empty
+    metricas = pd.read_csv(tmp_path / "metricas" / "metricas.csv", encoding="utf-8-sig")
+    assert list(metricas["estado"]) == ["error_extraccion"]
+
+
+def test_el_informe_solo_usa_las_descargas_de_las_consultas_actuales(tmp_path):
+    metricas = tmp_path / "metricas"
+    metricas.mkdir()
+    (metricas / "descargas.csv").write_text(
+        "cufe,estado,detalle,pdf,t_navegacion,t_captcha,t_consulta,t_descarga,t_persona,t_total\n"
+        f"{'f' * 96},ok,,x.pdf,,,,,30.0,31.0\n",
+        encoding="utf-8",
+    )
+    consultas = escribir_consultas(tmp_path / "consultas.csv", [("e" * 96, "")])
+    main(["extraer", "--consultas", str(consultas), "--entrada", str(tmp_path),
+          "--salida", str(tmp_path / "csv"), "--imagenes", str(tmp_path / "img"),
+          "--metricas", str(metricas)])  # fmt: skip
+    informe = (metricas / "informe.md").read_text(encoding="utf-8")
+    assert "ffffffffffff" not in informe
 
 
 def test_descargar_con_los_cufe_de_la_prueba_marca_requiere_nit_sin_abrir_el_navegador(

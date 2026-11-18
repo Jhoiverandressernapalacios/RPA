@@ -42,6 +42,39 @@ def test_limpia_espacios_y_mayusculas_del_cufe_y_puntos_del_nit(tmp_path):
     assert leer_consultas(ruta) == [Consulta(CUFE_A, "900123456")]
 
 
+def test_quita_el_digito_de_verificacion_del_nit(tmp_path):
+    ruta = tmp_path / "consultas.csv"
+    ruta.write_text(f"cufe,nit\n{CUFE_A},900.123.456-7\n", encoding="utf-8")
+    assert leer_consultas(ruta) == [Consulta(CUFE_A, "900123456")]
+
+
+@pytest.mark.parametrize("cufe", ["../../x", "ab", "a" * 95, "g" * 96, "a" * 96 + "&x=1"])
+def test_rechaza_un_cufe_invalido_indicando_la_fila(tmp_path, cufe):
+    ruta = tmp_path / "consultas.csv"
+    ruta.write_text(f"cufe,nit\n{CUFE_A},1\n{cufe},1\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="fila 3"):
+        leer_consultas(ruta)
+
+
+def test_rechaza_cufe_repetidos(tmp_path):
+    ruta = tmp_path / "consultas.csv"
+    ruta.write_text(f"cufe,nit\n{CUFE_A},1\n{CUFE_A},2\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="repetido"):
+        leer_consultas(ruta)
+
+
+def test_neutraliza_formulas_de_excel_en_las_columnas_de_texto(tmp_path):
+    factura = Factura(
+        cufe=CUFE_A,
+        encabezado=Encabezado("SETT-1", "2025-01-01", "900123456"),
+        productos=[Producto("=1+1", '=HYPERLINK("http://x")', 1.0, 2.0)],
+    )
+    exportar([factura], tmp_path)
+    texto = (tmp_path / f"{CUFE_A}.csv").read_text(encoding="utf-8-sig")
+    assert "'=1+1" in texto
+    assert "'=HYPERLINK" in texto
+
+
 def test_rechaza_un_archivo_sin_las_columnas_cufe_y_nit(tmp_path):
     ruta = tmp_path / "consultas.csv"
     ruta.write_text("codigo\n123\n", encoding="utf-8")

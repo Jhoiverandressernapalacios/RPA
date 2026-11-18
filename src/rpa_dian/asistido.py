@@ -1,36 +1,48 @@
 """Modo asistido de descarga (automatización asistida).
 
 El robot no controla el navegador: abre la consulta en el navegador normal de la persona
-con el enlace oficial que ya trae el CUFE (Cloudflare valida solo), pone el NIT en el
-portapapeles y vigila la carpeta de Descargas hasta que llega el PDF. La persona pega el
-NIT y pulsa "Buscar", "Descargar PDF" y "Aceptar".
-Así se respeta el captcha: nadie engaña a Cloudflare, simplemente no hay automatización
-dentro del navegador.
+con el enlace oficial que ya trae el CUFE (Cloudflare valida solo) y vigila la carpeta de
+Descargas hasta que llega el PDF, que valida, mueve al proyecto y cronometra.
+
+En el navegador, la persona da una orden por página: puede escribir el NIT y pulsar
+"Buscar", "Descargar PDF" y "Aceptar" a mano, o pulsar el favorito "RPA DIAN"
+(docs/marcador-dian.html), que hace esos pasos en la página abierta cuando ella lo activa.
+No hay ciclos entre facturas dentro del navegador ni se toca el captcha: cada consulta la
+inicia una persona (ver docs/adr/0001-captcha-resuelto-por-persona.md).
 """
 
-import os
+import re
+import shutil
 import subprocess
 import time
 import webbrowser
 from collections.abc import Callable
 from pathlib import Path
+from urllib.parse import urlencode
 
 from rpa_dian import config
 from rpa_dian.consultas import Consulta
 from rpa_dian.descarga import TiempoAgotado, validar_pdf
 
+_DESCARGA_EN_CURSO = (".part", ".crdownload", ".tmp", ".partial")
+
 
 def buscar_pdf(carpeta: Path, cufe: str, desde: float) -> Path | None:
-    """El PDF más reciente de ese CUFE en `carpeta` modificado después de `desde`.
+    """El PDF descargado de ese CUFE, si ya está completo.
 
-    Acepta `<CUFE>.pdf` y `<CUFE> (1).pdf` (nombre que pone el navegador si ya existía).
-    Las descargas en curso (`.crdownload`, `.tmp`) no terminan en `.pdf` y se ignoran.
+    Acepta exactamente `<CUFE>.pdf` o `<CUFE> (N).pdf` (nombre que pone el navegador si ya
+    existía), modificado después de `desde`, con contenido y sin una descarga en curso al
+    lado (`.part` de Firefox, `.crdownload` de Chrome/Edge).
     """
-    candidatos = [
-        ruta
-        for ruta in carpeta.glob(f"{cufe}*.pdf")
-        if ruta.is_file() and ruta.stat().st_mtime >= desde
-    ]
+    patron = re.compile(rf"{re.escape(cufe)}( \(\d+\))?\.pdf", re.IGNORECASE)
+    candidatos = []
+    for ruta in carpeta.iterdir():
+        if not (patron.fullmatch(ruta.name) and ruta.is_file()):
+            continue
+        estado = ruta.stat()
+        en_curso = any(ruta.with_name(ruta.name + s).exists() for s in _DESCARGA_EN_CURSO)
+        if estado.st_mtime >= desde and estado.st_size > 0 and not en_curso:
+            candidatos.append(ruta)
     return max(candidatos, key=lambda r: r.stat().st_mtime, default=None)
 
 
@@ -47,13 +59,15 @@ class ConsultorAsistido:
         carpeta_descargas: Path = config.DIR_DESCARGAS,
         espera_s: float = 300,
         abrir_url: Callable[[str], object] = webbrowser.open,
-        copiar: Callable[[str], None] = copiar_al_portapapeles,
+        copiar: Callable[[str], None] | None = None,
         avisar: Callable[[str], None] = print,
         dormir: Callable[[float], None] = time.sleep,
     ):
         self.carpeta_descargas = carpeta_descargas
         self.espera_s = espera_s
         self.abrir_url = abrir_url
+        # El portapapeles es opcional: Windows guarda su historial (Win+V) y el NIT puede
+        # ser la cédula de una persona.
         self.copiar = copiar
         self.avisar = avisar
         self.dormir = dormir
@@ -61,34 +75,44 @@ class ConsultorAsistido:
     def consultar(self, consulta: Consulta, carpeta: Path, tiempos: dict[str, float]) -> Path:
         inicio = time.time()
         desde = inicio - 1  # margen por la resolución de la hora de los archivos
-        # Enlace oficial (el mismo del QR de las facturas): abre el formulario con el CUFE
-        # escrito. El NIT va en el fragmento (#nit=…), que el navegador no envía a la DIAN;
-        # lo usa el botón de favoritos (docs/marcador-dian.html) cuando la persona lo pulsa.
-        # También queda en el portapapeles por si se prefiere pegarlo.
-        self.abrir_url(f"{config.URL_DIAN}?DocumentKey={consulta.cufe}#nit={consulta.nit}")
-        self.copiar(consulta.nit)
+        # Enlace oficial (el del QR de las facturas): abre el formulario con el CUFE escrito.
+        # El NIT va en el fragmento (#nit=…): no viaja en la petición HTTP; el favorito lo
+        # lee y lo borra de la barra de direcciones.
+        consulta_url = urlencode({"DocumentKey": consulta.cufe})
+        self.abrir_url(f"{config.URL_DIAN}?{consulta_url}#nit={consulta.nit}")
+        if self.copiar:
+            self.copiar(consulta.nit)
         self.avisar(
             f"\nCUFE {consulta.cufe[:12]}…: se abrió la consulta en tu navegador.\n"
-            "  1. Pulsa el favorito 'RPA DIAN': escribe el NIT, espera el visto verde y busca.\n"
-            "  2. En el resultado, pulsa otra vez 'RPA DIAN': espera el visto verde y descarga.\n"
+            "  1. Pulsa el favorito 'RPA DIAN' (o escribe el NIT y pulsa 'Buscar').\n"
+            "  2. En el resultado, pulsa otra vez 'RPA DIAN' (o 'Descargar PDF' > 'Aceptar').\n"
             f"  Esperando el PDF en {self.carpeta_descargas} (máximo {self.espera_s:.0f} s)…"
         )
+        ultimo_error, tamano_anterior = "", -1
         while time.time() - inicio < self.espera_s:
             descargado = buscar_pdf(self.carpeta_descargas, consulta.cufe, desde)
             if descargado:
-                tiempos["persona"] = time.time() - inicio
-                return self._mover(descargado, carpeta / f"{consulta.cufe}.pdf", tiempos)
+                tamano = descargado.stat().st_size
+                if tamano == tamano_anterior:  # mismo tamaño en dos sondeos: terminó
+                    try:
+                        validar_pdf(descargado)
+                    except ValueError as error:
+                        ultimo_error = str(error)  # puede seguir llegando: se espera
+                    else:
+                        tiempos["persona"] = time.time() - inicio
+                        return self._mover(descargado, carpeta / f"{consulta.cufe}.pdf", tiempos)
+                tamano_anterior = tamano
             self.dormir(1)
+        motivo = f": {ultimo_error}" if ultimo_error else ""
         raise TiempoAgotado(
-            f"No llegó el PDF a {self.carpeta_descargas.name} en {self.espera_s:.0f} s "
-            "(revisa que la carpeta de Descargas sea la correcta)"
+            f"No llegó un PDF válido a {self.carpeta_descargas.name} en "
+            f"{self.espera_s:.0f} s{motivo}"
         )
 
     def _mover(self, origen: Path, destino: Path, tiempos: dict[str, float]) -> Path:
         t = time.time()
-        validar_pdf(origen)
         destino.parent.mkdir(parents=True, exist_ok=True)
-        os.replace(origen, destino)
+        shutil.move(origen, destino)  # funciona aunque Descargas esté en otra unidad
         tiempos["descarga"] = time.time() - t
         self.avisar(f"  PDF recibido: {destino.name[:12]}….pdf")
         return destino
