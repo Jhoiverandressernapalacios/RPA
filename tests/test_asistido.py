@@ -98,8 +98,9 @@ def test_abre_el_enlace_oficial_con_el_cufe_y_deja_el_nit_en_el_portapapeles(car
     persona = PersonaSimulada(descargas)
     tiempos: dict[str, float] = {}
     pdf = consultor_con(persona).consultar(Consulta(CUFE, "900123456"), salida, tiempos)
+    # El NIT va después de "#": el navegador no lo envía a la DIAN; lo lee el botón de favoritos.
     assert persona.urls == [
-        f"https://catalogo-vpfe.dian.gov.co/User/SearchDocument?DocumentKey={CUFE}"
+        f"https://catalogo-vpfe.dian.gov.co/User/SearchDocument?DocumentKey={CUFE}#nit=900123456"
     ]
     assert persona.portapapeles == ["900123456"]
     assert pdf == salida / f"{CUFE}.pdf"

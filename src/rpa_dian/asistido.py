@@ -62,14 +62,15 @@ class ConsultorAsistido:
         inicio = time.time()
         desde = inicio - 1  # margen por la resolución de la hora de los archivos
         # Enlace oficial (el mismo del QR de las facturas): abre el formulario con el CUFE
-        # escrito. El NIT no se puede prellenar por la URL; queda en el portapapeles.
-        self.abrir_url(f"{config.URL_DIAN}?DocumentKey={consulta.cufe}")
+        # escrito. El NIT va en el fragmento (#nit=…), que el navegador no envía a la DIAN;
+        # lo usa el botón de favoritos (docs/marcador-dian.html) cuando la persona lo pulsa.
+        # También queda en el portapapeles por si se prefiere pegarlo.
+        self.abrir_url(f"{config.URL_DIAN}?DocumentKey={consulta.cufe}#nit={consulta.nit}")
         self.copiar(consulta.nit)
         self.avisar(
-            f"\nCUFE {consulta.cufe[:12]}…: se abrió la consulta en tu navegador con el CUFE "
-            "escrito y el NIT copiado.\n"
-            "  1. Pega el NIT (Ctrl+V), espera el visto verde de Cloudflare y pulsa 'Buscar'.\n"
-            "  2. En el resultado, espera el visto verde y pulsa 'Descargar PDF' > 'Aceptar'.\n"
+            f"\nCUFE {consulta.cufe[:12]}…: se abrió la consulta en tu navegador.\n"
+            "  1. Pulsa el favorito 'RPA DIAN': escribe el NIT, espera el visto verde y busca.\n"
+            "  2. En el resultado, pulsa otra vez 'RPA DIAN': espera el visto verde y descarga.\n"
             f"  Esperando el PDF en {self.carpeta_descargas} (máximo {self.espera_s:.0f} s)…"
         )
         while time.time() - inicio < self.espera_s:

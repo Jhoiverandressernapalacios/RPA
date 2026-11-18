@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Favorito RPA DIAN</title>
+<style>
+  :root { --fondo: #ffffff; --texto: #1f2933; --suave: #52606d; --acento: #0b7a5c; --borde: #d9e2ec; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fondo: #12161b; --texto: #e4e7eb; --suave: #9aa5b1; --acento: #3ccf9e; --borde: #323f4b; }
+  }
+  body { margin: 0; background: var(--fondo); color: var(--texto); font: 16px/1.55 system-ui, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 16px; }
+  h1 { font-size: 1.5rem; margin: 0 0 8px; }
+  p, li { color: var(--suave); }
+  a.favorito { display: inline-block; margin: 16px 0; padding: 12px 20px; border-radius: 8px;
+    background: var(--acento); color: #fff; font-weight: 700; text-decoration: none; cursor: grab; }
+  code { background: var(--borde); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Favorito "RPA DIAN"</h1>
+  <p>Arrastra este botón a la barra de favoritos de Chrome (Ctrl+Shift+B la muestra):</p>
+  <a class="favorito" id="favorito" href="#">RPA DIAN</a>
+  <ol>
+    <li><strong>En el formulario</strong> que abre el robot (CUFE ya escrito): pulsa el favorito. Escribe el NIT, espera el visto verde de Cloudflare y pulsa "Buscar".</li>
+    <li><strong>En el resultado</strong>: pulsa el favorito otra vez. Espera el visto verde, pulsa "Descargar PDF" y "Aceptar".</li>
+  </ol>
+  <p>El favorito solo actúa cuando tú lo pulsas, una vez por página. El NIT lo toma de la parte <code>#nit=…</code> del enlace, que el navegador no envía a la DIAN.</p>
+</main>
+
+<script type="text/plain" id="fuente">
+(function () {
+  var conToken = function () {
+    return Array.prototype.some.call(
+      document.querySelectorAll('input[name=cf-turnstile-response]'),
+      function (e) { return e.value; });
+  };
+  var esperar = function (condicion, accion, intentos) {
+    intentos = intentos || 0;
+    if (condicion()) { return accion(); }
+    if (intentos > 600) { alert('RPA DIAN: el captcha no se validó en 5 minutos'); return; }
+    setTimeout(function () { esperar(condicion, accion, intentos + 1); }, 500);
+  };
+  var visible = function (patron, selector) {
+    return Array.prototype.find.call(document.querySelectorAll(selector), function (b) {
+      return b.offsetParent && patron.test(b.innerText);
+    });
+  };
+  var ruta = location.pathname.toLowerCase();
+  if (ruta.indexOf('/user/searchdocument') >= 0) {
+    var nit = location.hash.match(/nit=(\d+)/);
+    var campo = document.getElementById('SearchDocumentNit');
+    if (nit && campo) {
+      campo.value = nit[1];
+      campo.dispatchEvent(new Event('input', { bubbles: true }));
+      campo.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    esperar(conToken, function () {
+      document.querySelector('#search-document-form button[type=submit]').click();
+    });
+  } else if (ruta.indexOf('showdocumenttopublic') >= 0) {
+    esperar(conToken, function () {
+      var enlace = visible(/Descargar PDF/i, 'a,button');
+      if (!enlace) { alert('RPA DIAN: no encontré "Descargar PDF"'); return; }
+      enlace.click();
+      esperar(function () { return !!visible(/Aceptar/, 'button'); },
+              function () { visible(/Aceptar/, 'button').click(); });
+    });
+  } else {
+    alert('RPA DIAN: abre primero la consulta de la DIAN que abre el robot');
+  }
+})();
+</script>
+<script>
+  var fuente = document.getElementById('fuente').textContent;
+  document.getElementById('favorito').href = 'javascript:' + encodeURIComponent(fuente);
+</script>
+</body>
+</html>
