@@ -1,8 +1,9 @@
 """Modo asistido de descarga (automatización asistida).
 
-El robot no controla el navegador: abre la consulta en el navegador normal de la persona,
-donde Cloudflare valida solo, pone en el portapapeles el CUFE y luego el NIT, y vigila la
-carpeta de Descargas hasta que llega el PDF. La persona solo pega y pulsa los botones.
+El robot no controla el navegador: abre la consulta en el navegador normal de la persona
+con el enlace oficial que ya trae el CUFE (Cloudflare valida solo), pone el NIT en el
+portapapeles y vigila la carpeta de Descargas hasta que llega el PDF. La persona pega el
+NIT y pulsa "Buscar", "Descargar PDF" y "Aceptar".
 Así se respeta el captcha: nadie engaña a Cloudflare, simplemente no hay automatización
 dentro del navegador.
 """
@@ -47,7 +48,6 @@ class ConsultorAsistido:
         espera_s: float = 300,
         abrir_url: Callable[[str], object] = webbrowser.open,
         copiar: Callable[[str], None] = copiar_al_portapapeles,
-        preguntar: Callable[[str], str] = input,
         avisar: Callable[[str], None] = print,
         dormir: Callable[[float], None] = time.sleep,
     ):
@@ -55,24 +55,21 @@ class ConsultorAsistido:
         self.espera_s = espera_s
         self.abrir_url = abrir_url
         self.copiar = copiar
-        self.preguntar = preguntar
         self.avisar = avisar
         self.dormir = dormir
 
     def consultar(self, consulta: Consulta, carpeta: Path, tiempos: dict[str, float]) -> Path:
         inicio = time.time()
         desde = inicio - 1  # margen por la resolución de la hora de los archivos
-        self.abrir_url(config.URL_DIAN)
-        self.copiar(consulta.cufe)
-        self.avisar(
-            f"\nCUFE {consulta.cufe[:12]}…: se abrió la página de la DIAN en tu navegador.\n"
-            "  1. Pega el CUFE (Ctrl+V) en 'CUFE o UUID'."
-        )
-        self.preguntar("  Presiona Enter aquí cuando lo hayas pegado… ")
+        # Enlace oficial (el mismo del QR de las facturas): abre el formulario con el CUFE
+        # escrito. El NIT no se puede prellenar por la URL; queda en el portapapeles.
+        self.abrir_url(f"{config.URL_DIAN}?DocumentKey={consulta.cufe}")
         self.copiar(consulta.nit)
         self.avisar(
-            "  2. Pega el NIT (Ctrl+V), espera el visto verde de Cloudflare y pulsa 'Buscar'.\n"
-            "  3. En el resultado, espera el visto verde y pulsa 'Descargar PDF' > 'Aceptar'.\n"
+            f"\nCUFE {consulta.cufe[:12]}…: se abrió la consulta en tu navegador con el CUFE "
+            "escrito y el NIT copiado.\n"
+            "  1. Pega el NIT (Ctrl+V), espera el visto verde de Cloudflare y pulsa 'Buscar'.\n"
+            "  2. En el resultado, espera el visto verde y pulsa 'Descargar PDF' > 'Aceptar'.\n"
             f"  Esperando el PDF en {self.carpeta_descargas} (máximo {self.espera_s:.0f} s)…"
         )
         while time.time() - inicio < self.espera_s:

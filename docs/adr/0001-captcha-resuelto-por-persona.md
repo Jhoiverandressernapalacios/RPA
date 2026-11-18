@@ -23,7 +23,7 @@ Turnstile es un control de seguridad de una entidad del Estado cuyo propósito e
 
 Se divide la descarga en tres partes:
 
-1. **Modo asistido (flujo principal, `descargar --modo asistido`).** El robot no controla el navegador: abre la consulta en el navegador normal de la persona (`webbrowser.open`), donde Cloudflare valida solo; pone en el portapapeles el CUFE y luego el NIT; y vigila la carpeta de Descargas hasta que llega `<CUFE>*.pdf`, que valida y mueve a `output/pdf/`. La persona pega los datos y pulsa "Buscar" y "Descargar PDF". El robot mide cada consulta y sigue con la siguiente; la extracción, los CSV y las métricas son automáticos.
+1. **Modo asistido (flujo principal, `descargar --modo asistido`).** El robot no controla el navegador: abre la consulta en el navegador normal de la persona (`webbrowser.open`), donde Cloudflare valida solo, con el enlace oficial `SearchDocument?DocumentKey=<CUFE>` (el mismo que la DIAN pone en el QR de cada factura), que trae el CUFE escrito; deja el NIT en el portapapeles (la página no acepta prellenarlo por la URL); y vigila la carpeta de Descargas hasta que llega `<CUFE>*.pdf`, que valida y mueve a `output/pdf/`. La persona pega el NIT y pulsa "Buscar", "Descargar PDF" y "Aceptar". El robot mide cada consulta y sigue con la siguiente; la extracción, los CSV y las métricas son automáticos.
 2. **Modo automático (`descargar --modo automatico`), conservado como evidencia.** El bot con Playwright recorre todo el flujo (CUFE, NIT que aparece después, espera del captcha en el formulario y en el resultado, "Descargar PDF", aviso de contraseña, reintentos). Nunca interactúa con el widget del captcha: solo espera su respuesta. Su resultado real es el del punto 3 del contexto.
 3. **Recomendación para producción.** Para un proceso real a escala no se debe usar la página pública: la DIAN expone servicios web SOAP para facturadores y proveedores tecnológicos habilitados (servicio `WcfDianCustomerServices`, p. ej. la operación `GetStatus`, que consulta el estado de un documento por su identificador), con autenticación WS-Security. No pasan por el captcha porque el acceso se controla con credenciales. Detalle técnico en los anexos de la DIAN (ver Referencias); habría que confirmar las operaciones disponibles y los requisitos de habilitación en el anexo técnico vigente antes de implementarlo.
 
@@ -43,9 +43,10 @@ Se divide la descarga en tres partes:
 - En contra: Cloudflare rechaza la verificación en el navegador automatizado aunque el clic sea humano (punto 3 del contexto).
 - **Descartada por evidencia.**
 
-### Simular teclado y mouse a nivel del sistema operativo sobre el navegador normal
-- En contra: sigue siendo un bot que pasa un control diseñado para frenarlo, solo que por otra vía.
-- **Rechazada.**
+### Automatizar el navegador normal de la persona (teclado y mouse simulados, o conectarse a su Chrome)
+- A favor: el captcha ya está en verde en ese navegador, así que el bot podría escribir, buscar y descargar sin intervención.
+- En contra: Cloudflare da el visto verde porque cree que el navegador lo maneja una persona; si después lo maneja un bot, se está usando esa confianza para pasar un control diseñado para frenarlo, solo que por una vía que Cloudflare no detecta. También es frágil: deja de funcionar en cuanto Cloudflare lo detecte.
+- **Rechazada** (se evaluó a pedido del usuario el 2026-11-18). En su lugar se redujo el trabajo manual con el enlace oficial que trae el CUFE escrito.
 
 ## Consecuencias
 

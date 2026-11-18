@@ -41,7 +41,7 @@ El enunciado pide que el bot resuelva el captcha. **V1 no lo hace**: el bot se d
 4. **(2026-11-18, prueba real con el bot) Cloudflare rechaza los navegadores automatizados.** Con Edge o Chrome controlados por Playwright, Turnstile no se valida solo (muestra la casilla "Verifique que es un ser humano") y, aunque una persona la marque, responde "La verificación falló". Cloudflare evalúa el navegador, no solo el clic. Pasar ese control exigiría ocultar la automatización, y eso queda fuera del proyecto.
 
 **Consecuencia para la descarga (tres partes):**
-- **Modo asistido (flujo principal, `--modo asistido`):** el robot abre cada consulta en el navegador normal de la persona, **sin controlarlo** (ahí el captcha se valida solo), copia el CUFE y luego el NIT al portapapeles, y vigila la carpeta de Descargas: cuando llega `<CUFE>*.pdf`, lo valida, lo mueve a `output/pdf/<CUFE>.pdf` y mide los tiempos. La persona solo pega los datos y pulsa Buscar y Descargar.
+- **Modo asistido (flujo principal, `--modo asistido`):** el robot abre cada consulta en el navegador normal de la persona, **sin controlarlo** (ahí el captcha se valida solo), con el enlace oficial que ya trae el CUFE; deja el NIT en el portapapeles y vigila la carpeta de Descargas: cuando llega `<CUFE>*.pdf`, lo valida, lo mueve a `output/pdf/<CUFE>.pdf` y mide los tiempos. La persona pega el NIT y pulsa Buscar, Descargar PDF y Aceptar.
 - **Modo automático (`--modo automatico`), como evidencia:** el bot con Playwright se conserva, documentado con su resultado real.
 - **Recomendación para producción:** usar los servicios web SOAP de la DIAN para facturadores y proveedores habilitados (p. ej., `GetStatus` en `WcfDianCustomerServices`, autenticación WS-Security), que no pasan por la página pública ni su captcha.
 
@@ -209,7 +209,7 @@ CSV en UTF-8 con BOM, separados por coma, para que abran bien en Excel.
 
 ## Criterios de éxito
 
-1. `python -m rpa_dian descargar` (modo asistido por defecto) procesa cada fila del CSV en orden. Si tiene NIT: abre la página en el navegador normal, copia el CUFE al portapapeles, espera Enter, copia el NIT y espera hasta 5 minutos a que llegue `<CUFE>*.pdf` a la carpeta de Descargas; lo valida (`%PDF-`) y lo mueve a `output/pdf/<CUFE>.pdf`. Con `--modo automatico` intenta el mismo flujo con Playwright (ver Hallazgo 4).
+1. `python -m rpa_dian descargar` (modo asistido por defecto) procesa cada fila del CSV en orden. Si tiene NIT: abre en el navegador normal el enlace oficial `SearchDocument?DocumentKey=<CUFE>` (el del QR de las facturas, que trae el CUFE escrito), copia el NIT al portapapeles y espera hasta 5 minutos a que llegue `<CUFE>*.pdf` a la carpeta de Descargas; lo valida (`%PDF-`) y lo mueve a `output/pdf/<CUFE>.pdf`. Con `--modo automatico` intenta el mismo flujo con Playwright (ver Hallazgo 4).
 2. Cada consulta termina en un estado y el proceso continúa: `ok`, `requiere_nit` (NIT vacío, no se consulta), `sin_resultado`, `error` o `timeout`. Con `data/consultas.csv`, los 10 CUFE de la prueba terminan en `requiere_nit`.
 3. Cada PDF se abre con su NIT como contraseña y genera una imagen PNG por página a 300 dpi en `output/img/`.
 4. Cada factura descargada produce su CSV con las 8 columnas de la tabla de salida, una fila por producto, y todas entran en `consolidado.csv`.

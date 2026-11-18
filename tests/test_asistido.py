@@ -69,10 +69,6 @@ class PersonaSimulada:
     def copiar(self, texto: str) -> None:
         self.portapapeles.append(texto)
 
-    def preguntar(self, mensaje: str) -> str:
-        self.avisos.append(mensaje)
-        return ""
-
     def dormir(self, _segundos: float) -> None:
         destino = self.descargas / f"{CUFE}.pdf"
         if not destino.exists():
@@ -85,7 +81,6 @@ def consultor_con(persona: PersonaSimulada, espera_s: float = 60) -> ConsultorAs
         espera_s=espera_s,
         abrir_url=persona.abrir,
         copiar=persona.copiar,
-        preguntar=persona.preguntar,
         avisar=persona.avisos.append,
         dormir=persona.dormir,
     )
@@ -98,13 +93,15 @@ def carpetas(tmp_path):
     return descargas, salida
 
 
-def test_abre_la_pagina_copia_cufe_y_luego_nit_y_mueve_el_pdf_al_proyecto(carpetas):
+def test_abre_el_enlace_oficial_con_el_cufe_y_deja_el_nit_en_el_portapapeles(carpetas):
     descargas, salida = carpetas
     persona = PersonaSimulada(descargas)
     tiempos: dict[str, float] = {}
     pdf = consultor_con(persona).consultar(Consulta(CUFE, "900123456"), salida, tiempos)
-    assert persona.urls == ["https://catalogo-vpfe.dian.gov.co/User/SearchDocument"]
-    assert persona.portapapeles == [CUFE, "900123456"]
+    assert persona.urls == [
+        f"https://catalogo-vpfe.dian.gov.co/User/SearchDocument?DocumentKey={CUFE}"
+    ]
+    assert persona.portapapeles == ["900123456"]
     assert pdf == salida / f"{CUFE}.pdf"
     assert pdf.read_bytes() == PDF_MINIMO
     assert not (descargas / f"{CUFE}.pdf").exists()
