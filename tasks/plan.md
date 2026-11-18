@@ -64,7 +64,7 @@ T1 Entorno ── T2 Esqueleto ──┬── T3 Reconocimiento DIAN ──┬�
 - [x] T9: Bot: abrir la página, llenar el CUFE y esperar el captcha → Cloudflare rechaza el navegador automatizado aunque una persona marque la casilla ([ADR-0001](../docs/adr/0001-captcha-resuelto-por-persona.md))
 - [x] T10: Bot: descargar el PDF, manejar errores y subcomando `descargar` (modo automático, conservado como evidencia)
 - [x] T10b: Modo asistido (`descargar --modo asistido`, predeterminado): navegador normal + portapapeles + carpeta de Descargas
-- [ ] T10c: Corrida real del modo asistido con una factura del usuario
+- [x] T10c: Corrida real del modo asistido con una factura del usuario (2026-11-18 09:17: descarga `ok`, extracción 10/11 campos)
 
 ### Checkpoint 3: Descarga
 - [ ] Corrida real con los 10 CUFE (tú resuelves el captcha); cada uno termina en `ok`, `sin_resultado`, `error` o `timeout`

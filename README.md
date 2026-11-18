@@ -8,7 +8,7 @@ Prueba técnica · Analista de Ciencia de Datos / Innovación · noviembre de 20
 
 | Requisito de la prueba | Estado |
 |---|---|
-| RPA que entra a la DIAN, consulta los CUFE y descarga los PDF | ✅ Implementado en dos modos (asistido y automático). Los 10 CUFE de la prueba no se pueden consultar: **la DIAN exige también el NIT**, que la prueba no entrega |
+| RPA que entra a la DIAN, consulta los CUFE y descarga los PDF | ✅ Implementado en dos modos (asistido y automático). **Validado de punta a punta en modo asistido con una factura real** (descarga `ok` + extracción). Los 10 CUFE de la prueba no se pueden consultar: **la DIAN exige también el NIT**, que la prueba no entrega |
 | "El proceso automatizado debe resolver el captcha" | ⚠️ No se evade el captcha. Cloudflare rechaza navegadores automatizados aunque una persona marque la casilla; la descarga usa un **modo asistido** (un clic de la persona por página). Ver [ADR-0001](docs/adr/0001-captcha-resuelto-por-persona.md) |
 | Extraer texto de las imágenes (número de factura, fecha, NIT emisor, código, descripción, cantidad, precio unitario) | ✅ 100 % de campos correctos en facturas de ejemplo; 90,9 % en una factura real |
 | Un DataFrame por archivo exportado a CSV | ✅ `output/csv/<CUFE>.csv` + `consolidado.csv` |

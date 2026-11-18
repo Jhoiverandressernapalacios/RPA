@@ -11,6 +11,7 @@ El informe por ejecución lo genera el propio proceso en `output/metricas/inform
 | **A. Los 10 CUFE de la prueba** (`data/consultas.csv`) | `python -m rpa_dian` | 10 de 10 en `requiere_nit`: la DIAN exige el NIT y la prueba no lo entrega (ver §4) |
 | **B. 2 facturas de EJEMPLO** (`tests/fixtures/pdf`, datos ficticios, PDF cifrados) | `python -m rpa_dian extraer …` | 2 facturas, 5 productos, **26 de 26 campos correctos (100 %)** |
 | **C. 1 factura real** (de la persona que presenta la prueba; no se publica) | Descarga manual en el portal + `extraer` | 1 factura, 2 productos, **10 de 11 campos correctos (90,9 %)** |
+| **D. La misma factura real, de punta a punta en modo asistido** | `python -m rpa_dian --consultas privado\consultas.csv` | Descarga **`ok`**: el robot abrió la consulta, detectó el PDF en Descargas, lo validó y lo movió al proyecto. Extracción: 2 productos, **10 de 11 campos (90,9 %)** en 24 s |
 
 ## 2. Tiempos del proceso (segundos)
 
@@ -23,7 +24,8 @@ Equipo: Windows 11, Python 3.12, Tesseract 5.4, PDF a 300 dpi.
 | **Extracción total por factura** | **10,5** | **16,5** |
 
 - El OCR domina el tiempo: cada precio y cantidad se lee a 2 escalas y, si no coinciden, a una tercera para votar (ver §3). Leer siempre las 3 escalas tomaba 14,7 s y 21,8 s.
-- **Descarga (modo asistido):** depende de la persona. En la grabación de una consulta manual, Cloudflare se validó solo en ~10 s y la consulta completa tomó ~25 s desde "Buscar" hasta el PDF. El proceso registra ese tiempo por factura en la columna `t_persona` de `metricas.csv`, separado del tiempo automático.
+- **Descarga (modo asistido):** depende de la persona. En la grabación de una consulta manual, Cloudflare se validó solo en ~10 s y la consulta completa tomó ~25 s desde "Buscar" hasta el PDF. El proceso registra el tiempo por factura en la columna `t_persona` de `metricas.csv`, separado del tiempo automático. En la ejecución D se midieron 685 s: ese valor cuenta desde que el robot abre la consulta, e incluye la espera hasta que la persona llegó al navegador, no solo los clics.
+- **Movimiento y validación del PDF por el robot:** menos de 0,1 s.
 - **Estimado para 10 facturas con NIT:** ~10 × (25 s de persona + 10–17 s de extracción) ≈ 6–7 minutos.
 
 ## 3. Precisión del OCR por campo
@@ -59,7 +61,7 @@ La comparación es estricta: un número cuenta solo si aparece completo (no dent
 
 1. **La consulta exige CUFE + NIT** del emisor o receptor (verificado en el portal). La prueba entrega solo los CUFE, y el NIT no se puede deducir porque el CUFE es un hash SHA-384. → Los 10 CUFE terminan en `requiere_nit`.
 2. **Captcha Cloudflare Turnstile** en el formulario y otra vez en la página de resultado. En un navegador normal se valida solo; en uno controlado por un robot (Playwright, con Edge o Chrome) Cloudflare **rechaza la verificación aunque una persona marque la casilla**. No se oculta la automatización. → Modo asistido: el robot abre la consulta con el CUFE escrito en el navegador normal y la persona confirma con un clic por página (favorito "RPA DIAN"). Decisión y evidencia en [`docs/adr/0001-captcha-resuelto-por-persona.md`](adr/0001-captcha-resuelto-por-persona.md).
-3. **El PDF viene cifrado** con el NIT usado en la consulta. → La extracción lo abre con ese NIT.
+3. **El PDF viene cifrado** con el NIT que se escribe en la búsqueda. → La extracción lo abre con el NIT de la consulta. Si la persona busca con otro NIT (p. ej., el del receptor en lugar del emisor), el PDF no abre con el NIT del archivo de consultas: el proceso no se detiene, registra `error_extraccion` y se resuelve corrigiendo el NIT en el CSV (pasó en la ejecución D).
 4. **El campo NIT aparece solo después de escribir el CUFE**, y "Descargar PDF" falla si el captcha de la página de resultado no terminó ("El campo de seguridad no está completo"). → El flujo espera ambos captchas.
 5. **Letras parecidas en la fuente del PDF** (`III` leído como `II`). → Visible en la precisión del número de factura de la factura real.
 6. **El Chromium que trae Playwright no arrancó en el equipo de desarrollo** (error de configuración en paralelo de Windows). → El modo automático usa Edge o Chrome instalados (`RPA_NAVEGADOR`).
