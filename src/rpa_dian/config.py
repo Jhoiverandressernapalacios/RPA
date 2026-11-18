@@ -17,6 +17,8 @@ DIR_CSV = DIR_SALIDA / "csv"
 DIR_METRICAS = DIR_SALIDA / "metricas"
 
 URL_DIAN = "https://catalogo-vpfe.dian.gov.co/User/SearchDocument"
+# Carpeta donde el navegador normal guarda las descargas (modo asistido)
+DIR_DESCARGAS = Path(os.environ.get("RPA_DESCARGAS", str(Path.home() / "Downloads")))
 ESPERA_CAPTCHA_S = 180
 PAUSA_ENTRE_CONSULTAS_S = 5
 # Navegador para el bot. "msedge" usa el Edge instalado en Windows; "" usa el Chromium de

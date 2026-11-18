@@ -26,7 +26,7 @@ OK, REQUIERE_NIT, SIN_RESULTADO, ERROR, TIMEOUT = (
     "error",
     "timeout",
 )
-ETAPAS = ("navegacion", "captcha", "consulta", "descarga", "total")
+ETAPAS = ("navegacion", "captcha", "consulta", "descarga", "persona", "total")
 
 
 class SinResultado(Exception):
@@ -210,7 +210,7 @@ class ConsultorDian:
             while time.monotonic() - inicio < 30:
                 if self._descargas:
                     self._descargas.pop().save_as(destino)
-                    _validar_pdf(destino)
+                    validar_pdf(destino)
                     return destino
                 if self.pagina.get_by_text("campo de seguridad no está completo").is_visible():
                     log.info("La página pidió esperar el captcha; se reintenta la descarga")
@@ -228,7 +228,7 @@ class ConsultorDian:
         return " | ".join(t.strip() for t in textos if t.strip())
 
 
-def _validar_pdf(ruta: Path) -> None:
+def validar_pdf(ruta: Path) -> None:
     with ruta.open("rb") as archivo:
         if archivo.read(5) != b"%PDF-":
             raise ValueError(f"{ruta.name} no es un PDF válido")

@@ -1,7 +1,7 @@
 """Punto de entrada: `python -m rpa_dian <subcomando>`.
 
 Subcomandos disponibles:
-  descargar  consulta cada CUFE en la DIAN y guarda el PDF (una persona marca el captcha)
+  descargar  consulta cada CUFE en la DIAN y guarda el PDF (modo asistido o automático)
   extraer    PDF descargados -> imágenes -> OCR -> un CSV por factura + consolidado.csv
 """
 
@@ -11,6 +11,7 @@ from collections import Counter
 from pathlib import Path
 
 from rpa_dian import config
+from rpa_dian.asistido import ConsultorAsistido
 from rpa_dian.consultas import leer_consultas
 from rpa_dian.conversion import PdfProtegidoError
 from rpa_dian.descarga import Resultado, abrir_navegador, descargar_todas, guardar_resultados
@@ -47,14 +48,28 @@ def extraer(consultas: Path, entrada: Path, salida: Path, imagenes: Path) -> lis
     return facturas
 
 
-def descargar(consultas: Path, salida: Path, resultados: Path) -> list[Resultado]:
-    """Descarga los PDF; solo abre el navegador si alguna consulta tiene NIT."""
+def descargar(
+    consultas: Path,
+    salida: Path,
+    resultados: Path,
+    modo: str = "asistido",
+    carpeta_descargas: Path = config.DIR_DESCARGAS,
+    espera: float = 300,
+) -> list[Resultado]:
+    """Descarga los PDF; solo se usa el navegador si alguna consulta tiene NIT.
+
+    - asistido: abre la consulta en el navegador normal y vigila la carpeta de Descargas.
+    - automatico: Playwright (Cloudflare lo rechaza; se conserva como evidencia).
+    """
     lista = leer_consultas(consultas)
-    if any(c.nit for c in lista):
+    if not any(c.nit for c in lista):
+        obtenidos = descargar_todas(lista, None, salida)
+    elif modo == "automatico":
         with abrir_navegador() as consultor:
             obtenidos = descargar_todas(lista, consultor, salida)
     else:
-        obtenidos = descargar_todas(lista, None, salida)
+        consultor = ConsultorAsistido(carpeta_descargas=carpeta_descargas, espera_s=espera)
+        obtenidos = descargar_todas(lista, consultor, salida)
     guardar_resultados(obtenidos, resultados)
     resumen = Counter(r.estado for r in obtenidos)
     log.info("Descarga terminada: %s; detalle en %s", dict(resumen), resultados)
@@ -69,6 +84,15 @@ def _argumentos(argv: list[str] | None) -> argparse.Namespace:
     sub.add_argument("--consultas", type=Path, default=config.RUTA_CONSULTAS)
     sub.add_argument("--salida", type=Path, default=config.DIR_PDF)
     sub.add_argument("--resultados", type=Path, default=config.DIR_METRICAS / "descargas.csv")
+    sub.add_argument(
+        "--modo",
+        choices=["asistido", "automatico"],
+        default="asistido",
+        help="asistido: navegador normal + carpeta de Descargas (predeterminado); "
+        "automatico: Playwright (Cloudflare lo rechaza)",
+    )
+    sub.add_argument("--descargas", type=Path, default=config.DIR_DESCARGAS)
+    sub.add_argument("--espera", type=float, default=300, help="segundos por factura")
 
     sub = subcomandos.add_parser("extraer", help="PDF -> imágenes -> OCR -> CSV")
     sub.add_argument("--consultas", type=Path, default=config.RUTA_CONSULTAS)
@@ -82,7 +106,14 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     argumentos = _argumentos(argv)
     if argumentos.subcomando == "descargar":
-        descargar(argumentos.consultas, argumentos.salida, argumentos.resultados)
+        descargar(
+            argumentos.consultas,
+            argumentos.salida,
+            argumentos.resultados,
+            argumentos.modo,
+            argumentos.descargas,
+            argumentos.espera,
+        )
     elif argumentos.subcomando == "extraer":
         extraer(argumentos.consultas, argumentos.entrada, argumentos.salida, argumentos.imagenes)
     return 0

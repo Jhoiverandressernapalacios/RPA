@@ -95,9 +95,9 @@ def test_guarda_los_resultados_en_un_csv(tmp_path):
     ]
     ruta = guardar_resultados(resultados, tmp_path / "descargas.csv")
     lineas = ruta.read_text(encoding="utf-8-sig").splitlines()
-    assert (
-        lineas[0] == "cufe,estado,detalle,pdf,t_navegacion,t_captcha,t_consulta,t_descarga,t_total"
+    assert lineas[0] == (
+        "cufe,estado,detalle,pdf,t_navegacion,t_captcha,t_consulta,t_descarga,t_persona,t_total"
     )
     assert lineas[1].startswith(f"{CUFE_1},ok,,")
-    assert lineas[1].endswith(",,4.0,,,12.5")
-    assert lineas[2] == f"{CUFE_2},requiere_nit,Falta el NIT,,,,,,"
+    assert lineas[1].endswith(",,4.0,,,,12.5")
+    assert lineas[2] == f"{CUFE_2},requiere_nit,Falta el NIT,,,,,,,"
