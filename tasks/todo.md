@@ -50,13 +50,30 @@ Tamaños: XS = 1 archivo · S = 1-2 archivos · M = 3-5 archivos.
 **Descripción:** Abrir la página en el navegador integrado y consultar el primer CUFE. Tú resuelves el captcha cuando aparezca. El objetivo es responder cuatro preguntas antes de escribir el bot: ¿el NIT es obligatorio?, ¿qué captcha usa?, ¿el CUFE devuelve una factura?, ¿cómo se descarga el PDF (botón, enlace o endpoint)? Se anotan los selectores de los campos.
 
 **Criterios de aceptación:**
-- [ ] `docs/reconocimiento-dian.md` responde las cuatro preguntas, con los selectores encontrados
-- [ ] Queda decidido el camino: PDF reales o PDF de ejemplo (plan B)
+- [x] `docs/reconocimiento-dian.md` responde las cuatro preguntas, con los selectores encontrados
+- [x] Queda decidido el camino: entrada `cufe,nit`, CUFE de la prueba → `requiere_nit`, validación con facturas reales en `privado/` y PDF de ejemplo
 
 **Verificación:**
-- [ ] Revisión contigo del documento (Checkpoint 1)
+- [x] Revisión contigo del documento: consulta real con tu factura, descarga del PDF y apertura con el NIT del receptor (2 páginas, capa de texto presente)
+
+**Resultado:** NIT obligatorio · captcha Cloudflare Turnstile (falla en el navegador integrado de Claude, pasa en Chrome) · resultado en `/Document/ShowDocumentToPublic` · "Descargar PDF" → aviso → `<CUFE>.pdf` cifrado con el NIT. El PDF es la representación gráfica de la "Solución Gratuita DIAN": la tabla de productos parte el código y la descripción en varias líneas.
 
 **Depende de:** nada (se puede hacer antes de T1) · **Archivos:** `docs/reconocimiento-dian.md` · **Tamaño:** XS
+
+---
+
+### T3b: Migrar la entrada a `data/consultas.csv`
+
+**Descripción:** Reemplazar `data/cufes.txt` por `data/consultas.csv` con columnas `cufe,nit` (los 10 CUFE de la prueba con NIT vacío) y adaptar `tests/test_datos.py` y `config.py`.
+
+**Criterios de aceptación:**
+- [x] `data/consultas.csv` tiene encabezado `cufe,nit` y 10 filas; NIT vacío o solo dígitos
+- [x] `data/cufes.txt` ya no existe
+
+**Verificación:**
+- [x] `pytest -q` → 7 pruebas pasan (escritas primero, en rojo); `ruff check .` sin errores
+
+**Depende de:** T3 · **Archivos:** `data/consultas.csv`, `tests/test_datos.py`, `src/rpa_dian/config.py` · **Tamaño:** XS
 
 ---
 
@@ -70,7 +87,7 @@ Tamaños: XS = 1 archivo · S = 1-2 archivos · M = 3-5 archivos.
 
 ### T4: Fixtures de prueba
 
-**Descripción:** Reunir el material de prueba. Si T3 encontró facturas reales, se usan sus PDF. Si no, se genera con un script un PDF de ejemplo con la estructura de la representación gráfica DIAN (secciones "Datos del Documento", "Datos del Emisor/Vendedor" y "Detalles del Producto"), marcado visiblemente como **EJEMPLO**. Se agregan textos OCR de ejemplo, incluidos errores típicos de OCR (`O`/`0`, `l`/`1`, espacios partidos).
+**Descripción:** Generar con un script PDF sintéticos con la estructura de la representación gráfica DIAN ("Datos del Documento", "Datos del Emisor / Vendedor", "Detalles de Productos" con código y descripción partidos en varias líneas), marcados visiblemente como **EJEMPLO**, con datos inventados y **cifrados con un NIT ficticio**, igual que los reales. Se agregan textos OCR de ejemplo, incluidos errores típicos de OCR (`O`/`0`, `l`/`1`, espacios partidos). Los PDF reales se quedan en `privado/` y nunca se copian a `tests/`.
 
 **Criterios de aceptación:**
 - [ ] Al menos 2 PDF en `tests/fixtures/pdf/`, con los valores esperados en un JSON al lado
@@ -116,7 +133,7 @@ Tamaños: XS = 1 archivo · S = 1-2 archivos · M = 3-5 archivos.
 
 ### T7: PDF a PNG y OCR
 
-**Descripción:** `conversion.py` convierte cada página del PDF en PNG a 300 dpi con PyMuPDF. `ocr.py` aplica un preprocesado básico (escala de grises, umbral) y lee el texto con Tesseract en español. También expone la capa de texto del PDF, si existe, para medir la precisión del OCR después.
+**Descripción:** `conversion.py` abre el PDF con su NIT como contraseña (`doc.authenticate(nit)`; si falla, error claro) y convierte cada página en PNG a 300 dpi con PyMuPDF. `ocr.py` aplica un preprocesado básico (escala de grises, umbral) y lee el texto con Tesseract en español. También expone la capa de texto del PDF, si existe, para medir la precisión del OCR después.
 
 **Criterios de aceptación:**
 - [ ] Un PDF de ejemplo genera un PNG por página en `output/img/`
@@ -156,10 +173,11 @@ Tamaños: XS = 1 archivo · S = 1-2 archivos · M = 3-5 archivos.
 
 ### T9: Bot: consulta y espera del captcha
 
-**Descripción:** `descarga.py` lee `data/cufes.txt`, abre Chromium visible con Playwright y, para cada CUFE: entra a la página, llena el campo (y el NIT si T3 mostró que es obligatorio), muestra en consola "Resuelve el captcha en el navegador" y espera hasta 180 s a que aparezca el resultado. Una consulta a la vez, con una pausa entre consultas.
+**Descripción:** `descarga.py` lee el CSV de consultas, abre Chromium visible con Playwright y, para cada fila: si el NIT está vacío, marca `requiere_nit` sin consultar; si no, entra a la página, llena `#DocumentKey` y `#SearchDocumentNit`, muestra en consola "Resuelve el captcha en el navegador" y espera hasta 180 s a que la página pase a `/Document/ShowDocumentToPublic`. La persona pulsa "Buscar" después del captcha, o el bot lo pulsa cuando `cf-turnstile-response` tenga valor. Una consulta a la vez, con una pausa entre consultas. **Primera comprobación:** si Turnstile deja pasar a una persona dentro del Chromium de Playwright; si no, se documenta y no se intenta ocultar la automatización.
 
 **Criterios de aceptación:**
-- [ ] Con el primer CUFE, el bot llega a la pantalla de resultado después de que resuelves el captcha
+- [ ] Con una factura de `privado/consultas.csv`, el bot llega a la pantalla de resultado después de que resuelves el captcha
+- [ ] Las filas sin NIT terminan en `requiere_nit` sin abrir la página
 - [ ] Si pasan 180 s sin resolverlo, marca `timeout` y sigue con el siguiente
 - [ ] El bot nunca interactúa con el widget del captcha
 
@@ -173,7 +191,7 @@ Tamaños: XS = 1 archivo · S = 1-2 archivos · M = 3-5 archivos.
 
 ### T10: Bot: descarga del PDF, errores y subcomando `descargar`
 
-**Descripción:** Desde la pantalla de resultado, descargar el PDF como `output/pdf/<CUFE>.pdf`. Detectar y marcar `sin_resultado` (el CUFE no existe) y `error` (red o página caída). Agregar el subcomando `descargar` en `__main__.py`.
+**Descripción:** Desde la pantalla de resultado, pulsar "Descargar PDF", aceptar el aviso de contraseña y capturar la descarga con `page.expect_download()` como `output/pdf/<CUFE>.pdf`. Detectar y marcar `sin_resultado` (el CUFE no existe) y `error` (red o página caída). Agregar el subcomando `descargar` en `__main__.py`.
 
 **Criterios de aceptación:**
 - [ ] Cada CUFE termina en un estado: `ok`, `sin_resultado`, `error` o `timeout`

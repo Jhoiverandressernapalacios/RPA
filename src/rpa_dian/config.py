@@ -9,7 +9,7 @@ from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[2]
 
-RUTA_CUFES = RAIZ / "data" / "cufes.txt"
+RUTA_CONSULTAS = RAIZ / "data" / "consultas.csv"
 DIR_SALIDA = RAIZ / "output"
 DIR_PDF = DIR_SALIDA / "pdf"
 DIR_IMG = DIR_SALIDA / "img"

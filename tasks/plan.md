@@ -38,7 +38,8 @@ T1 Entorno ── T2 Esqueleto ──┬── T3 Reconocimiento DIAN ──┬�
 ### Fase 0: Preparación
 - [x] T1: Instalar Python 3.12 y Tesseract con el idioma español
 - [x] T2: Esqueleto del proyecto, dependencias y repositorio Git local
-- [ ] T3: Reconocimiento de la página DIAN con un CUFE real
+- [x] T3: Reconocimiento de la página DIAN con un CUFE real → la consulta exige CUFE + NIT y el PDF viene cifrado con el NIT ([detalle](../docs/reconocimiento-dian.md))
+- [x] T3b: Migrar la entrada de `data/cufes.txt` a `data/consultas.csv` (`cufe,nit`)
 
 ### Checkpoint 1: Preparación
 - [ ] `pytest` y `ruff check .` corren sin errores en el esqueleto
@@ -84,8 +85,10 @@ T1 Entorno ── T2 Esqueleto ──┬── T3 Reconocimiento DIAN ──┬�
 
 | Riesgo | Impacto | Mitigación |
 |---|---|---|
-| Los CUFE son ficticios y la DIAN no devuelve nada | Alto | T3 lo confirma temprano; plan B: PDF de ejemplo marcados como tales, y el bot se demuestra con el estado `sin_resultado` |
-| El formulario exige un NIT que la prueba no da | Alto | T3 lo confirma; si es obligatorio, se documenta como restricción y se usa el plan B |
+| ~~Los CUFE son ficticios y la DIAN no devuelve nada~~ | — | No se puede saber sin NIT (ver la fila siguiente) |
+| **Confirmado:** el formulario exige un NIT que la prueba no da | Alto | Entrada `cufe,nit`; los CUFE de la prueba terminan en `requiere_nit` y se reportan como restricción; el flujo se valida con facturas reales del usuario en `privado/` |
+| El PDF viene cifrado con el NIT | Medio | La extracción abre el PDF con su NIT (`authenticate`); los fixtures sintéticos también se cifran para probarlo |
+| Datos personales de facturas reales | Alto | `privado/` está en `.gitignore`; los fixtures son sintéticos; el informe solo usa datos del emisor |
 | La página detecta el navegador automatizado y bloquea incluso con el captcha resuelto a mano | Medio | Navegador visible, ritmo humano, sesión persistente; si aun así bloquea, se documenta y se usa el plan B |
 | El OCR lee mal la tabla de productos | Medio | Imagen a 300 dpi con preprocesado; comparación contra la capa de texto del PDF; se reporta la precisión real |
 | El instalador de Tesseract no trae el idioma español | Bajo | Se agrega `spa.traineddata` del repositorio oficial de Tesseract (te pido permiso para la descarga) |

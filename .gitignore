@@ -11,6 +11,9 @@ htmlcov/
 # Resultados del proceso (se generan al ejecutar)
 output/
 
+# Facturas reales del usuario para validar el flujo (datos personales)
+privado/
+
 # Documento de la prueba: tendrá datos personales al diligenciarlo
 *.docx
 ~$*

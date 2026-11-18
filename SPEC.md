@@ -1,6 +1,6 @@
 # Spec: RPA DIAN — Descarga y extracción de facturas — V1
 
-> Estado: **aprobada** (2026-11-17)
+> Estado: **aprobada** (2026-11-17) · **Actualizada** el 2026-11-18 con los hallazgos del reconocimiento de la DIAN ([`docs/reconocimiento-dian.md`](docs/reconocimiento-dian.md)): la consulta exige CUFE + NIT y el PDF viene cifrado con ese NIT.
 > Fuente: `PRUEBA ANALISTA DE INNOVACION 2026 (1) (3) (2) (2).docx` (prueba técnica, plazo 24 h)
 
 ## Mapa de capacidades
@@ -9,8 +9,8 @@ El requerimiento agrupa dos capacidades que se prueban por separado. Se especifi
 
 | Módulo | Responsabilidad | Depende de |
 |---|---|---|
-| `descarga-dian` | Abrir el catálogo DIAN, consultar cada CUFE, esperar a que una persona resuelva el captcha, descargar el PDF | — |
-| `extraccion-ocr` | PDF → imagen → texto (OCR) → campos → DataFrame → CSV | Solo de que existan PDF en `output/pdf/` |
+| `descarga-dian` | Abrir el catálogo DIAN, consultar cada CUFE con su NIT, esperar a que una persona resuelva el captcha, descargar el PDF | — |
+| `extraccion-ocr` | PDF cifrado → abrir con el NIT → imagen → texto (OCR) → campos → DataFrame → CSV | Solo de que existan PDF en `output/pdf/` y su NIT |
 | `metricas` | Medir tiempos por CUFE y por etapa, estado de cada uno y precisión del OCR | Ambos (los instrumenta) |
 
 Orden de construcción: `extraccion-ocr` (se puede probar ya con PDF de ejemplo) → `descarga-dian` → `metricas` (se va agregando durante ambos) → integración.
@@ -32,6 +32,14 @@ Construir en Python un proceso automatizado que:
 
 El enunciado pide que el bot resuelva el captcha. **V1 no lo hace**: el bot se detiene en el captcha, una persona lo resuelve en la ventana del navegador y el bot continúa solo. Saltarse un control anti-bots de un sitio del Estado no se implementa en este proyecto. La decisión queda registrada en `docs/adr/0001-captcha-resuelto-por-persona.md` y explicada en el README y en el informe como restricción del proceso.
 
+### Hallazgos del reconocimiento (2026-11-18)
+
+1. **La consulta exige CUFE + NIT** (del emisor o del receptor, sin puntos ni dígito de verificación). La prueba solo entrega los CUFE, y el NIT no se puede deducir del CUFE porque este es un hash.
+2. **El PDF descargado está cifrado** y su contraseña es el NIT usado en la consulta.
+3. **El captcha es Cloudflare Turnstile.** Pasa cuando una persona lo resuelve en un navegador normal. En navegadores embebidos o automatizados puede fallar; eso se comprueba en T9 y, si falla, se documenta como restricción, sin ocultar la automatización.
+
+**Consecuencia:** la entrada es un CSV `cufe,nit`. Los 10 CUFE de la prueba van con el NIT vacío y terminan en el estado `requiere_nit`, que el informe reporta como restricción. El flujo completo se valida con facturas reales del usuario en `privado/`, que nunca se sube al repositorio.
+
 ## Stack técnico
 
 | Pieza | Herramienta | Para qué |
@@ -39,7 +47,7 @@ El enunciado pide que el bot resuelva el captcha. **V1 no lo hace**: el bot se d
 | Lenguaje | Python 3.12 | — |
 | Navegador | Playwright (API síncrona, Chromium, modo visible) | Bot de descarga |
 | PDF → imagen | PyMuPDF (`import pymupdf`; el alias `fitz` está obsoleto) a 300 dpi | Exportar imágenes |
-| OCR | Tesseract 5 + paquete de idioma `spa`, vía `pytesseract` | Texto de las imágenes |
+| OCR | Tesseract 5 + paquete de idioma `spa`, vía `pytesseract` | Texto de las imágenes; para la tabla de productos se usan las posiciones de cada palabra (`image_to_data`) y se asignan a columnas según los encabezados, porque las celdas parten el código y la descripción en varias líneas |
 | Imagen | Pillow | Preprocesado básico (escala de grises, umbral) |
 | Datos | pandas | DataFrames y CSV |
 | Pruebas | pytest | Pruebas unitarias e integración |
@@ -62,8 +70,11 @@ python -m playwright install chromium
 python -m rpa_dian
 
 # Por etapas
-python -m rpa_dian descargar --cufes data/cufes.txt --salida output/pdf
-python -m rpa_dian extraer --entrada output/pdf --salida output/csv
+python -m rpa_dian descargar --consultas data/consultas.csv --salida output/pdf
+python -m rpa_dian extraer --consultas data/consultas.csv --entrada output/pdf --salida output/csv
+
+# Validación con facturas reales (archivo local, fuera de Git)
+python -m rpa_dian --consultas privado/consultas.csv
 
 # Calidad
 pytest -q
@@ -79,7 +90,10 @@ RPA/
 ├── README.md                  → Instalación, uso, resultados, restricciones
 ├── requirements.txt
 ├── data/
-│   └── cufes.txt              → Los 10 CUFE, uno por línea
+│   └── consultas.csv          → Columnas cufe,nit: los 10 CUFE de la prueba (NIT vacío)
+├── privado/                   → No se sube al repositorio: facturas reales del usuario
+│   ├── consultas.csv          →   CUFE + NIT para validar el flujo completo
+│   └── pdf/                   →   PDF reales descargados
 ├── src/rpa_dian/
 │   ├── __main__.py            → Punto de entrada y subcomandos
 │   ├── config.py              → Rutas, tiempos de espera, dpi
@@ -136,9 +150,9 @@ Un CSV por factura en `output/csv/<CUFE>.csv` y un consolidado `output/csv/conso
 |---|---|---|---|
 | `cufe` | texto | `eccc372e…f1` | Trazabilidad |
 | `numero_factura` | texto | `FE-1234` | Tal como aparece |
-| `fecha_emision` | fecha | `2025-03-14` | Normalizada a AAAA-MM-DD |
+| `fecha_emision` | fecha | `2025-03-14` | En el PDF viene como DD/MM/AAAA; se normaliza a AAAA-MM-DD |
 | `nit_emisor` | texto | `900123456` | Sin puntos; dígito de verificación aparte si existe |
-| `codigo` | texto | `P-001` | Tal como aparece |
+| `codigo` | texto | `7701234567890` | Se unen las líneas en que la celda parte el código |
 | `descripcion` | texto | `Servicio de…` | Espacios normalizados |
 | `cantidad` | decimal | `2.0` | Formato colombiano convertido (`1.234,50` → `1234.5`) |
 | `precio_unitario` | decimal | `150000.0` | Ídem |
@@ -149,7 +163,7 @@ CSV en UTF-8 con BOM, separados por coma, para que abran bien en Excel.
 
 | Nivel | Qué cubre | Cómo |
 |---|---|---|
-| Unitarias | Expresiones regulares, normalización de fechas, NIT y números | `tests/test_extraccion.py` con textos OCR de ejemplo, incluidos textos con errores típicos de OCR |
+| Unitarias | Expresiones regulares, normalización de fechas, NIT y números | `tests/test_extraccion.py` con textos OCR de ejemplo, incluidos textos con errores típicos de OCR. Los fixtures del repositorio son sintéticos: nunca contienen datos de las facturas reales de `privado/` |
 | Integración | PDF de ejemplo → imagen → OCR → CSV | `tests/test_pipeline.py` (requiere Tesseract instalado) |
 | Descarga | El bot contra la página real | Manual: no se puede automatizar por el captcha. Evidencia: registro de la corrida y PDF descargados |
 
@@ -174,14 +188,15 @@ CSV en UTF-8 con BOM, separados por coma, para que abran bien en Excel.
 **Nunca:**
 - Resolver o saltar el captcha de forma automática (servicios de terceros, trucos contra Turnstile o reCAPTCHA, etc.).
 - Hacer consultas en paralelo o en ráfaga contra la DIAN.
-- Subir al repositorio el `.docx` diligenciado (tendrá tus datos personales), la carpeta `output/` ni credenciales.
+- Subir al repositorio el `.docx` diligenciado (tendrá tus datos personales), las carpetas `output/` y `privado/` ni credenciales.
+- Copiar datos del comprador (nombre, documento, dirección, teléfono, correo) de facturas reales a fixtures, informes, registros o mensajes de commit.
 - Inventar datos de facturas y presentarlos como reales.
 
 ## Criterios de éxito
 
-1. Con `data/cufes.txt` de 10 líneas, `python -m rpa_dian descargar` procesa los 10 en orden: llena el CUFE, se detiene en el captcha mostrando un aviso en consola, espera hasta 180 s a que la persona lo resuelva y descarga el PDF como `output/pdf/<CUFE>.pdf`.
-2. Un CUFE sin resultado, con error de red o con tiempo de espera agotado queda marcado (`sin_resultado`, `error`, `timeout`) y el proceso continúa.
-3. Cada PDF genera una imagen PNG por página a 300 dpi en `output/img/`.
+1. `python -m rpa_dian descargar` procesa cada fila del CSV en orden. Si tiene NIT: llena CUFE y NIT, se detiene en el captcha mostrando un aviso en consola, espera hasta 180 s a que la persona lo resuelva, pulsa "Descargar PDF", acepta el aviso de contraseña y guarda `output/pdf/<CUFE>.pdf`.
+2. Cada consulta termina en un estado y el proceso continúa: `ok`, `requiere_nit` (NIT vacío, no se consulta), `sin_resultado`, `error` o `timeout`. Con `data/consultas.csv`, los 10 CUFE de la prueba terminan en `requiere_nit`.
+3. Cada PDF se abre con su NIT como contraseña y genera una imagen PNG por página a 300 dpi en `output/img/`.
 4. Cada factura descargada produce su CSV con las 8 columnas de la tabla de salida, una fila por producto, y todas entran en `consolidado.csv`.
 5. `output/metricas/metricas.csv` registra, por CUFE: tiempo de navegación, de espera del captcha, de descarga, de conversión, de OCR y de extracción, más el estado final.
 6. `docs/informe.md` resume: tiempo total, promedio por factura, tiempo humano (captcha) separado del automático, tasa de éxito, precisión del OCR por campo y restricciones del proceso.
@@ -200,8 +215,8 @@ CSV en UTF-8 con BOM, separados por coma, para que abran bien en Excel.
 
 Se aprobó el SPEC con las propuestas por defecto:
 
-1. Si la DIAN no devuelve PDF para los CUFE, se usan PDF de ejemplo marcados como tales para demostrar la extracción.
-2. El campo "NIT del Emisor o Receptor" del formulario se verifica en el reconocimiento de la página (tarea 3 del plan).
+1. Si la DIAN no devuelve PDF para los CUFE, se usan PDF de ejemplo marcados como tales para demostrar la extracción. *(2026-11-18: además se valida con facturas reales del usuario en `privado/`.)*
+2. El campo "NIT del Emisor o Receptor" del formulario se verifica en el reconocimiento de la página (tarea 3 del plan). *(2026-11-18: es obligatorio; ver Hallazgos.)*
 3. Se reportan los tiempos del proceso (métricas) y el tiempo de desarrollo por tarea.
 4. Una fila por producto con el encabezado repetido.
 

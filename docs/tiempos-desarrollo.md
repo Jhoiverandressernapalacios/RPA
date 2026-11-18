@@ -7,3 +7,5 @@ Registro del tiempo empleado por tarea (lo pide la prueba: "Reporta los tiempos 
 | Análisis, SPEC y plan | 2026-11-17 | 2026-11-17 23:51 | — | Antes de iniciar el registro con hora |
 | T1 Entorno (Python, Tesseract, idioma español) | 2026-11-17 23:51 | 2026-11-18 00:00 | ~9 min | Incluye la espera de autorización para descargar `spa.traineddata` |
 | T2 Esqueleto del proyecto | 2026-11-18 00:00 | 2026-11-18 00:10 | ~10 min | |
+| T3 Reconocimiento de la página DIAN | 2026-11-18 00:10 | 2026-11-18 00:40 | ~30 min | Incluye pruebas manuales en el navegador y la validación con una factura real |
+| T3b Migración a `consultas.csv` y ajuste de SPEC/plan | 2026-11-18 00:40 | 2026-11-18 00:46 | ~6 min | |
