@@ -1,16 +1,19 @@
 """Punto de entrada: `python -m rpa_dian <subcomando>`.
 
 Subcomandos disponibles:
-  extraer   PDF descargados -> imágenes -> OCR -> un CSV por factura + consolidado.csv
+  descargar  consulta cada CUFE en la DIAN y guarda el PDF (una persona marca el captcha)
+  extraer    PDF descargados -> imágenes -> OCR -> un CSV por factura + consolidado.csv
 """
 
 import argparse
 import logging
+from collections import Counter
 from pathlib import Path
 
 from rpa_dian import config
 from rpa_dian.consultas import leer_consultas
 from rpa_dian.conversion import PdfProtegidoError
+from rpa_dian.descarga import Resultado, abrir_navegador, descargar_todas, guardar_resultados
 from rpa_dian.exportacion import exportar
 from rpa_dian.proceso import Factura, procesar_pdf
 
@@ -44,9 +47,28 @@ def extraer(consultas: Path, entrada: Path, salida: Path, imagenes: Path) -> lis
     return facturas
 
 
+def descargar(consultas: Path, salida: Path, resultados: Path) -> list[Resultado]:
+    """Descarga los PDF; solo abre el navegador si alguna consulta tiene NIT."""
+    lista = leer_consultas(consultas)
+    if any(c.nit for c in lista):
+        with abrir_navegador() as consultor:
+            obtenidos = descargar_todas(lista, consultor, salida)
+    else:
+        obtenidos = descargar_todas(lista, None, salida)
+    guardar_resultados(obtenidos, resultados)
+    resumen = Counter(r.estado for r in obtenidos)
+    log.info("Descarga terminada: %s; detalle en %s", dict(resumen), resultados)
+    return obtenidos
+
+
 def _argumentos(argv: list[str] | None) -> argparse.Namespace:
     analizador = argparse.ArgumentParser(prog="python -m rpa_dian", description=__doc__)
     subcomandos = analizador.add_subparsers(dest="subcomando", required=True)
+
+    sub = subcomandos.add_parser("descargar", help="CUFE + NIT -> PDF de la DIAN")
+    sub.add_argument("--consultas", type=Path, default=config.RUTA_CONSULTAS)
+    sub.add_argument("--salida", type=Path, default=config.DIR_PDF)
+    sub.add_argument("--resultados", type=Path, default=config.DIR_METRICAS / "descargas.csv")
 
     sub = subcomandos.add_parser("extraer", help="PDF -> imágenes -> OCR -> CSV")
     sub.add_argument("--consultas", type=Path, default=config.RUTA_CONSULTAS)
@@ -59,7 +81,9 @@ def _argumentos(argv: list[str] | None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     argumentos = _argumentos(argv)
-    if argumentos.subcomando == "extraer":
+    if argumentos.subcomando == "descargar":
+        descargar(argumentos.consultas, argumentos.salida, argumentos.resultados)
+    elif argumentos.subcomando == "extraer":
         extraer(argumentos.consultas, argumentos.entrada, argumentos.salida, argumentos.imagenes)
     return 0
 
