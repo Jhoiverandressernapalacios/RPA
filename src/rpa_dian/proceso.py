@@ -15,7 +15,7 @@ from rpa_dian.extraccion import (
     ubicar_celdas,
     zona_tabla,
 )
-from rpa_dian.ocr import detectar_lineas, leer_celda, leer_palabras, leer_texto
+from rpa_dian.ocr import detectar_lineas, leer_celda, leer_numero, leer_palabras, leer_texto
 
 
 @dataclass
@@ -56,13 +56,10 @@ def _productos_de_la_pagina(imagen: Image.Image) -> list[Producto]:
         return extraer_productos(palabras, horizontales, verticales)
     return [
         producto_desde_textos(
-            **{
-                columna: leer_celda(imagen, caja, solo_numeros=columna in _NUMERICAS)
-                for columna, caja in fila.items()
-            }
+            codigo=leer_celda(imagen, fila["codigo"]),
+            descripcion=leer_celda(imagen, fila["descripcion"]),
+            cantidad=leer_numero(imagen, fila["cantidad"]),
+            precio=leer_numero(imagen, fila["precio"]),
         )
         for fila in filas
     ]
-
-
-_NUMERICAS = {"cantidad", "precio"}

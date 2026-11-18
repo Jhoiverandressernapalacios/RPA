@@ -13,6 +13,7 @@ from rpa_dian.extraccion import (
     extraer_productos,
     producto_desde_textos,
     ubicar_celdas,
+    votar_numero,
     zona_tabla,
 )
 
@@ -81,6 +82,28 @@ def test_convierte_numeros_en_formato_colombiano(texto, esperado):
 @pytest.mark.parametrize("texto", ["", "WSD", "$"])
 def test_un_texto_sin_numero_devuelve_none(texto):
     assert a_numero(texto) is None
+
+
+# --- Voto entre lecturas de un mismo número ----------------------------------
+
+
+def test_el_voto_corrige_un_digito_distinto_en_cada_lectura():
+    lecturas = ["$ 33.613,44", "$ 33.613,94", "$ 33.013,44"]
+    assert votar_numero(lecturas) == "33.613,44"
+
+
+def test_el_voto_descarta_las_lecturas_que_no_tienen_formato_de_numero():
+    lecturas = ["$ 1.2600.504,20", "$ 1.260.504,20", "$ 1.260.504,20"]
+    assert votar_numero(lecturas) == "1.260.504,20"
+
+
+def test_con_dos_lecturas_distintas_gana_la_primera():
+    assert votar_numero(["$ 882.352,94", "$ 802.352,94"]) == "882.352,94"
+
+
+def test_si_ninguna_lectura_es_un_numero_devuelve_la_primera_limpia():
+    assert votar_numero(["$ ab c", "x"]) == "abc"
+    assert votar_numero([]) == ""
 
 
 # --- Tabla de productos -----------------------------------------------------

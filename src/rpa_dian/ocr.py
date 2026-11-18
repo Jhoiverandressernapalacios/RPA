@@ -8,7 +8,7 @@ import pytesseract
 from PIL import Image, ImageOps
 
 from rpa_dian import config
-from rpa_dian.extraccion import Caja, Palabra
+from rpa_dian.extraccion import Caja, Palabra, votar_numero
 
 if Path(config.TESSERACT_CMD).is_file():
     pytesseract.pytesseract.tesseract_cmd = config.TESSERACT_CMD
@@ -61,8 +61,8 @@ def leer_palabras(imagen: Image.Image) -> list[Palabra]:
 _SOLO_NUMEROS = "-c tessedit_char_whitelist=0123456789.,$"
 
 
-def leer_celda(imagen: Image.Image, caja: Caja, solo_numeros: bool = False) -> str:
-    """Lee una celda de tabla: recortada, sin las líneas del borde, ampliada x3 y con margen.
+def leer_celda(imagen: Image.Image, caja: Caja, solo_numeros: bool = False, escala: int = 2) -> str:
+    """Lee una celda de tabla: recortada, sin las líneas del borde, ampliada y con margen.
 
     Leer cada celda por separado (bloque de texto, psm 6) recupera caracteres sueltos y el
     orden de las líneas que el OCR de página completa pierde en celdas angostas. Se borran
@@ -71,11 +71,24 @@ def leer_celda(imagen: Image.Image, caja: Caja, solo_numeros: bool = False) -> s
     """
     x0, y0, x1, y1 = (int(round(c)) for c in caja)
     recorte = preprocesar(limpiar_bordes(imagen.crop((x0, y0, x1 + 1, y1 + 1))))
-    # x3 se eligió midiendo: con x2 y x4 se confundían 4/9 y 6/0 en los precios reales.
-    recorte = recorte.resize((recorte.width * 3, recorte.height * 3), Image.Resampling.LANCZOS)
+    recorte = recorte.resize(
+        (recorte.width * escala, recorte.height * escala), Image.Resampling.LANCZOS
+    )
     recorte = ImageOps.expand(recorte, border=20, fill=255)
     opciones = "--psm 6" + (f" {_SOLO_NUMEROS}" if solo_numeros else "")
     return pytesseract.image_to_string(recorte, lang=config.IDIOMA_OCR, config=opciones)
+
+
+ESCALAS_NUMERO = (3, 2, 4)
+
+
+def leer_numero(imagen: Image.Image, caja: Caja) -> str:
+    """Lee un valor numérico a varias escalas y vota el resultado carácter por carácter.
+
+    Medido en una factura real: cada escala confundía un dígito distinto (4/9, 6/0), pero
+    nunca la mayoría el mismo. El orden de ESCALAS_NUMERO decide los empates.
+    """
+    return votar_numero([leer_celda(imagen, caja, True, e) for e in ESCALAS_NUMERO])
 
 
 def limpiar_bordes(celda: Image.Image, franja: int = 8) -> Image.Image:

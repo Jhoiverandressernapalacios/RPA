@@ -8,6 +8,7 @@ import logging
 import math
 import re
 import unicodedata
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -54,6 +55,24 @@ def a_numero(texto: str) -> float | None:
         return None
     entero, decimales = coincidencia.groups()
     return float(f"{entero.replace('.', '')}.{decimales or 0}")
+
+
+def votar_numero(lecturas: Sequence[str]) -> str:
+    """Combina varias lecturas OCR del mismo número (p. ej., a distintas escalas).
+
+    Se descartan las que no tienen formato de número; entre las válidas del largo más común
+    se elige, posición por posición, el carácter mayoritario (en empate, el de la primera).
+    """
+    limpias = ["".join(lectura.replace("$", "").split()) for lectura in lecturas]
+    validas = [v for v in limpias if a_numero(v) is not None]
+    if not validas:
+        return limpias[0] if limpias else ""
+    largo = Counter(len(v) for v in validas).most_common(1)[0][0]
+    mismas = [v for v in validas if len(v) == largo]
+    votado = "".join(
+        Counter(caracteres).most_common(1)[0][0] for caracteres in zip(*mismas, strict=True)
+    )
+    return votado if a_numero(votado) is not None else mismas[0]
 
 
 def _numero_factura(texto: str) -> str:
