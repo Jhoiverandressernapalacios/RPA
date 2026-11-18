@@ -85,6 +85,12 @@ Tamaños: XS = 1 archivo · S = 1-2 archivos · M = 3-5 archivos.
 
 ## Fase 1: Extracción (PDF → CSV)
 
+> **Estado (2026-11-18 01:18): T4–T8 completas.** Cambios de diseño respecto al plan, descubiertos al probar con la factura real:
+> - **Tabla:** las columnas y filas salen de la cuadrícula detectada en la imagen (líneas delgadas), buscada solo en la franja de la tabla para no confundir el logo DIAN con un borde. Cada celda se recorta y se lee por separado (psm 6, x2), porque el OCR de página completa perdía caracteres sueltos.
+> - **Números:** cada precio y cantidad se lee a 3 escalas (x3, x2, x4) solo con dígitos, y se vota carácter por carácter: cada escala confundía un dígito distinto en la factura real.
+> - **Encabezado:** OCR de página con psm 4, que deja cada etiqueta en la misma línea que su valor.
+> - **Módulos nuevos:** `consultas.py` (lectura del CSV de consultas) y `proceso.py` (une conversión, OCR y extracción para una factura).
+
 ### T4: Fixtures de prueba
 
 **Descripción:** Generar con un script PDF sintéticos con la estructura de la representación gráfica DIAN ("Datos del Documento", "Datos del Emisor / Vendedor", "Detalles de Productos" con código y descripción partidos en varias líneas), marcados visiblemente como **EJEMPLO**, con datos inventados y **cifrados con un NIT ficticio**, igual que los reales. Se agregan textos OCR de ejemplo, incluidos errores típicos de OCR (`O`/`0`, `l`/`1`, espacios partidos). Los PDF reales se quedan en `privado/` y nunca se copian a `tests/`.

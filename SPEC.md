@@ -47,7 +47,8 @@ El enunciado pide que el bot resuelva el captcha. **V1 no lo hace**: el bot se d
 | Lenguaje | Python 3.12 | — |
 | Navegador | Playwright (API síncrona, Chromium, modo visible) | Bot de descarga |
 | PDF → imagen | PyMuPDF (`import pymupdf`; el alias `fitz` está obsoleto) a 300 dpi | Exportar imágenes |
-| OCR | Tesseract 5 + paquete de idioma `spa`, vía `pytesseract` | Texto de las imágenes; para la tabla de productos se usan las posiciones de cada palabra (`image_to_data`) y se asignan a columnas según los encabezados, porque las celdas parten el código y la descripción en varias líneas |
+| OCR | Tesseract 5 + paquete de idioma `spa`, vía `pytesseract` | Encabezado: OCR de página (psm 4). Tabla: se ubica con las palabras del encabezado (psm 11), se detecta su cuadrícula en la imagen y cada celda se lee por separado (psm 6); precios y cantidades se leen a 3 escalas y se votan carácter por carácter |
+| Imagen | NumPy | Detección de las líneas de la cuadrícula y limpieza de bordes de celda |
 | Imagen | Pillow | Preprocesado básico (escala de grises, umbral) |
 | Datos | pandas | DataFrames y CSV |
 | Pruebas | pytest | Pruebas unitarias e integración |
@@ -97,16 +98,23 @@ RPA/
 ├── src/rpa_dian/
 │   ├── __main__.py            → Punto de entrada y subcomandos
 │   ├── config.py              → Rutas, tiempos de espera, dpi
+│   ├── consultas.py           → Lectura del CSV cufe,nit
 │   ├── descarga.py            → Bot Playwright (módulo descarga-dian)
-│   ├── conversion.py          → PDF → PNG
-│   ├── ocr.py                 → PNG → texto
-│   ├── extraccion.py          → Texto → campos (expresiones regulares)
+│   ├── conversion.py          → PDF cifrado → PNG
+│   ├── ocr.py                 → PNG → texto, palabras, cuadrícula, celdas
+│   ├── extraccion.py          → Texto/palabras → campos (funciones puras)
+│   ├── proceso.py             → Una factura: conversión + OCR + extracción
 │   ├── exportacion.py         → DataFrame → CSV
 │   └── metricas.py            → Cronómetros y reporte
+├── scripts/
+│   └── generar_pdf_ejemplo.py → Facturas de EJEMPLO cifradas para las pruebas
 ├── tests/
-│   ├── fixtures/              → Textos OCR y PDF de ejemplo
+│   ├── fixtures/              → Textos OCR y PDF de ejemplo (datos ficticios)
+│   ├── test_datos.py
 │   ├── test_extraccion.py
+│   ├── test_ocr.py
 │   ├── test_exportacion.py
+│   ├── test_cli.py
 │   └── test_pipeline.py
 ├── output/                    → No se sube al repositorio
 │   ├── pdf/   img/   csv/   metricas/

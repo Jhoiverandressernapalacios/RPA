@@ -47,15 +47,18 @@ T1 Entorno ── T2 Esqueleto ──┬── T3 Reconocimiento DIAN ──┬�
 - [ ] Revisión contigo: confirmar el camino (PDF reales o de ejemplo)
 
 ### Fase 1: Extracción (PDF → CSV)
-- [ ] T4: Fixtures: PDF y textos OCR de ejemplo
-- [ ] T5: Extraer el encabezado (número de factura, fecha, NIT)
-- [ ] T6: Extraer la tabla de productos
-- [ ] T7: Convertir PDF a PNG y leer el texto con OCR
-- [ ] T8: Exportar a CSV y subcomando `extraer`
+- [x] T4: Fixtures: PDF y textos OCR de ejemplo
+- [x] T5: Extraer el encabezado (número de factura, fecha, NIT)
+- [x] T6: Extraer la tabla de productos
+- [x] T7: Convertir PDF a PNG y leer el texto con OCR
+- [x] T8: Exportar a CSV y subcomando `extraer`
 
 ### Checkpoint 2: Extracción
-- [ ] `python -m rpa_dian extraer` genera un CSV por factura y el consolidado
-- [ ] Cobertura ≥ 90 % en `extraccion.py` y `exportacion.py`
+- [x] `python -m rpa_dian extraer` genera un CSV por factura y el consolidado (61 pruebas; con los 2 ejemplos y con la factura real)
+- [x] Cobertura ≥ 90 % en `extraccion.py` (99 %) y `exportacion.py` (100 %); total 98 %
+- [ ] Revisión contigo de los CSV
+
+**Resultado con la factura real (2 productos, 7 campos cada uno):** 13 de 14 valores exactos. Falla el número de factura: el prefijo tiene tres "I" seguidas y el OCR lee solo dos. Las descripciones conservan los cortes de línea del PDF como espacios ("SMAR T TV").
 
 ### Fase 2: Descarga
 - [ ] T9: Bot: abrir la página, llenar el CUFE y esperar el captcha
