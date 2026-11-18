@@ -1,5 +1,6 @@
 """Une las piezas para una factura: PDF cifrado -> imágenes -> OCR -> encabezado y productos."""
 
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -25,22 +26,27 @@ class Factura:
     productos: list[Producto]
     imagenes: list[Path] = field(default_factory=list)
     texto_ocr: str = ""
+    tiempos: dict[str, float] = field(default_factory=dict)  # segundos por etapa
 
 
 def procesar_pdf(ruta: Path, nit: str, carpeta_imagenes: Path) -> Factura:
+    inicio = time.monotonic()
     imagenes = pdf_a_imagenes(ruta, nit, carpeta_imagenes)
+    conversion = time.monotonic() - inicio
     textos, productos = [], []
     for ruta_imagen in imagenes:
         with Image.open(ruta_imagen) as imagen:
             textos.append(leer_texto(imagen))
             productos.extend(_productos_de_la_pagina(imagen))
     texto = "\n".join(textos)
+    total = time.monotonic() - inicio
     return Factura(
         cufe=ruta.stem,
         encabezado=extraer_encabezado(texto),
         productos=productos,
         imagenes=imagenes,
         texto_ocr=texto,
+        tiempos={"conversion": conversion, "ocr": total - conversion, "total": total},
     )
 
 

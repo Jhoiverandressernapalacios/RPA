@@ -13,6 +13,7 @@ from rpa_dian.descarga import (
     TiempoAgotado,
     descargar_todas,
     guardar_resultados,
+    leer_resultados,
 )
 
 CUFE_1, CUFE_2, CUFE_3 = "1" * 96, "2" * 96, "3" * 96
@@ -86,6 +87,15 @@ def test_hace_una_pausa_entre_consultas_reales_pero_no_despues_de_la_ultima(tmp_
     consultas = [Consulta(CUFE_1, "1"), Consulta(CUFE_2, ""), Consulta(CUFE_3, "3")]
     descargar_todas(consultas, consultor, tmp_path, pausa=5, dormir=pausas.append)
     assert pausas == [5]
+
+
+def test_los_resultados_guardados_se_pueden_volver_a_leer(tmp_path):
+    originales = [
+        Resultado(CUFE_1, "ok", pdf=tmp_path / "a.pdf", tiempos={"persona": 40.0, "total": 41.5}),
+        Resultado(CUFE_2, "requiere_nit", detalle="Falta el NIT, sin consulta"),
+    ]
+    ruta = guardar_resultados(originales, tmp_path / "descargas.csv")
+    assert leer_resultados(ruta) == originales
 
 
 def test_guarda_los_resultados_en_un_csv(tmp_path):

@@ -31,6 +31,8 @@ def ejecutar_extraer(tmp_path: Path, consultas: Path) -> int:
             str(tmp_path / "csv"),
             "--imagenes",
             str(tmp_path / "img"),
+            "--metricas",
+            str(tmp_path / "metricas"),
         ]
     )
 
@@ -77,3 +79,24 @@ def test_extrae_las_facturas_de_ejemplo_a_csv(tmp_path):
     assert len(consolidado) == 5  # 2 + 3 productos
     assert set(consolidado["numero_factura"]) == {"SETT-1001", "FE-20250"}
     assert len(list((tmp_path / "csv").glob("*.csv"))) == 3
+    metricas = pd.read_csv(tmp_path / "metricas" / "metricas.csv", encoding="utf-8-sig")
+    # 3 campos de encabezado + 4 por producto: ejemplo 1 tiene 2 productos, ejemplo 2 tiene 3
+    assert list(metricas["campos_verificados"]) == [3 + 4 * 2, 3 + 4 * 3]
+    assert list(metricas["campos_correctos"]) == list(metricas["campos_verificados"])
+    assert "Precisión del OCR por campo" in (tmp_path / "metricas" / "informe.md").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_sin_subcomando_corre_el_proceso_completo(tmp_path):
+    codigo = main(
+        [
+            "--consultas",
+            str(escribir_consultas(tmp_path / "consultas.csv", [("e" * 96, "")])),
+            "--carpeta",
+            str(tmp_path / "salida"),
+        ]
+    )
+    assert codigo == 0
+    informe = (tmp_path / "salida" / "metricas" / "informe.md").read_text(encoding="utf-8")
+    assert "| requiere_nit | 1 |" in informe

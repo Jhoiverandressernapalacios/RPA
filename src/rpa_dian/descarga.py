@@ -111,6 +111,21 @@ def guardar_resultados(resultados: Sequence[Resultado], ruta: Path) -> Path:
     return ruta
 
 
+def leer_resultados(ruta: Path) -> list[Resultado]:
+    """Lee un CSV escrito por `guardar_resultados` (p. ej., para el informe posterior)."""
+    with ruta.open(encoding="utf-8-sig", newline="") as archivo:
+        return [
+            Resultado(
+                cufe=fila["cufe"],
+                estado=fila["estado"],
+                detalle=fila["detalle"],
+                pdf=Path(fila["pdf"]) if fila["pdf"] else None,
+                tiempos={e: float(fila[f"t_{e}"]) for e in ETAPAS if fila.get(f"t_{e}")},
+            )
+            for fila in csv.DictReader(archivo)
+        ]
+
+
 # --- Navegador real ------------------------------------------------------------
 
 
