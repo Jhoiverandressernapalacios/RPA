@@ -40,6 +40,8 @@ class TiempoAgotado(Exception):
 
 @dataclass
 class Resultado:
+    """Cómo terminó la consulta de un CUFE: estado, detalle, PDF y tiempos."""
+
     cufe: str
     estado: str
     detalle: str = ""
@@ -48,6 +50,10 @@ class Resultado:
 
 
 class Consultor(Protocol):
+    """Contrato común de los modos de descarga (automático y asistido): consultar un CUFE y devolver
+    la ruta del PDF.
+    """
+
     def consultar(self, consulta: Consulta, carpeta: Path, tiempos: dict[str, float]) -> Path:
         """Descarga el PDF de la consulta y devuelve su ruta; anota los tiempos por etapa."""
 
@@ -58,30 +64,39 @@ def descargar_todas(
     carpeta: Path,
     pausa: float = config.PAUSA_ENTRE_CONSULTAS_S,
     dormir: Callable[[float], None] = time.sleep,
+    al_terminar: Callable[[Resultado], None] | None = None,
 ) -> list[Resultado]:
-    """Procesa las consultas en orden, una a la vez. Un fallo no detiene las demás."""
+    """Procesa las consultas en orden, una a la vez. Un fallo no detiene las demás.
+
+    `al_terminar` se llama apenas termina cada consulta (p. ej., para escribir su Estado
+    en el Excel): así, si el proceso se interrumpe, queda registrado hasta dónde llegó.
+    """
     resultados = []
     reales = [c for c in consultas if c.nit]
     for consulta in consultas:
         if not consulta.nit:
-            resultados.append(
-                Resultado(
-                    consulta.cufe,
-                    REQUIERE_NIT,
-                    "La DIAN exige el NIT del emisor o receptor y no se tiene",
-                )
+            resultado = Resultado(
+                consulta.cufe,
+                REQUIERE_NIT,
+                "La DIAN exige el NIT del emisor o receptor y no se tiene",
             )
             log.info("%s… %s", consulta.cufe[:12], REQUIERE_NIT)
-            continue
-        if consultor is None:
-            raise ValueError("Hay consultas con NIT pero no hay navegador para consultarlas")
-        resultados.append(_consultar_una(consulta, consultor, carpeta))
-        if consulta is not reales[-1]:
-            dormir(pausa)
+        else:
+            if consultor is None:
+                raise ValueError("Hay consultas con NIT pero no hay navegador para consultarlas")
+            resultado = _consultar_una(consulta, consultor, carpeta)
+        resultados.append(resultado)
+        if al_terminar:
+            al_terminar(resultado)
+        if consulta.nit and consulta is not reales[-1]:
+            dormir(pausa)  # una consulta a la vez y con pausa: ritmo humano para la DIAN
     return resultados
 
 
 def _consultar_una(consulta: Consulta, consultor: Consultor, carpeta: Path) -> Resultado:
+    """Consulta un CUFE con el consultor y convierte cualquier resultado o error en un Resultado con
+    su estado; nunca lanza excepciones.
+    """
     tiempos: dict[str, float] = {}
     inicio = time.monotonic()
     try:
@@ -158,6 +173,9 @@ class ConsultorDian:
     """Recorre el flujo observado en la página (ver docs/reconocimiento-dian.md)."""
 
     def __init__(self, pagina, espera_captcha: float = config.ESPERA_CAPTCHA_S):
+        """Recibe la página de Playwright y registra el evento de descarga para capturar el PDF
+        cuando el navegador lo baje.
+        """
         self.pagina = pagina
         self.espera_captcha = espera_captcha
         self._descargas: list = []
@@ -165,6 +183,9 @@ class ConsultorDian:
         pagina.on("download", lambda descarga: self._descargas.append(descarga))
 
     def consultar(self, consulta: Consulta, carpeta: Path, tiempos: dict[str, float]) -> Path:
+        """Recorre el flujo del portal: CUFE, NIT (aparece después), espera del captcha, Buscar y
+        descarga del PDF. Anota el tiempo de cada etapa en `tiempos`.
+        """
         from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
         pagina = self.pagina
@@ -194,6 +215,7 @@ class ConsultorDian:
         return pdf
 
     def _token(self) -> bool:
+        """True si algún widget de Cloudflare Turnstile de la página ya dio su respuesta."""
         return self.pagina.evaluate(
             "() => [...document.querySelectorAll('input[name=cf-turnstile-response]')]"
             ".some(e => e.value)"
@@ -216,6 +238,7 @@ class ConsultorDian:
         raise TiempoAgotado(f"Captcha sin resolver en {self.espera_captcha:.0f} s ({donde})")
 
     def _aceptar_aviso(self, espera_ms: int = 5_000) -> bool:
+        """Pulsa el botón 'Aceptar' visible (avisos de la DIAN); False si no hay."""
         boton = self.pagina.locator("button:has-text('Aceptar'):visible").first
         try:
             boton.click(timeout=espera_ms)
@@ -248,6 +271,7 @@ class ConsultorDian:
         raise TiempoAgotado("No se pudo descargar el PDF después de 3 intentos")
 
     def _mensajes_de_error(self) -> str:
+        """Mensajes de validación que muestra la página tras una búsqueda fallida."""
         textos = self.pagina.locator(
             ".field-validation-error, .validation-summary-errors, .text-danger, .alert"
         ).all_inner_texts()

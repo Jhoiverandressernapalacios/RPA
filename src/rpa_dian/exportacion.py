@@ -1,5 +1,6 @@
 """Un DataFrame por factura (una fila por producto) y su exportación a CSV."""
 
+import re
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -47,13 +48,17 @@ def factura_a_dataframe(factura: Factura) -> pd.DataFrame:
 
 
 def exportar(facturas: Iterable[Factura], carpeta: Path) -> list[Path]:
-    """Escribe `<CUFE>.csv` por factura y `consolidado.csv` (UTF-8 con BOM para Excel)."""
+    """Escribe `<CUFE>.csv` por factura y `consolidado.csv` (UTF-8 con BOM para Excel).
+
+    El consolidado reúne todos los `<CUFE>.csv` de la carpeta, también los de corridas
+    anteriores: las filas ya validadas no se vuelven a procesar pero siguen en la base.
+    """
     carpeta.mkdir(parents=True, exist_ok=True)
-    rutas, tablas = [], []
+    rutas = []
     for factura in facturas:
-        tabla = factura_a_dataframe(factura)
-        rutas.append(_guardar(tabla, carpeta / f"{factura.cufe}.csv"))
-        tablas.append(tabla)
+        rutas.append(_guardar(factura_a_dataframe(factura), carpeta / f"{factura.cufe}.csv"))
+    por_factura = sorted(r for r in carpeta.glob("*.csv") if _PATRON_CSV.fullmatch(r.name))
+    tablas = [pd.read_csv(r, encoding="utf-8-sig", dtype=str) for r in por_factura]
     consolidado = (
         pd.concat(tablas, ignore_index=True) if tablas else pd.DataFrame(columns=COLUMNAS_CSV)
     )
@@ -61,7 +66,11 @@ def exportar(facturas: Iterable[Factura], carpeta: Path) -> list[Path]:
     return rutas
 
 
+_PATRON_CSV = re.compile(r"[0-9a-f]{96}\.csv")  # solo los CSV por factura
+
+
 def _guardar(tabla: pd.DataFrame, ruta: Path) -> Path:
+    """Guarda la tabla como CSV seguro y devuelve su ruta."""
     guardar_csv_seguro(tabla, ruta)
     return ruta
 
@@ -77,6 +86,9 @@ def guardar_csv_seguro(tabla: pd.DataFrame, ruta: Path) -> None:
 
 
 def neutralizar_formula(valor):
+    """Antepone un apóstrofo a los textos que Excel interpretaría como fórmula (empiezan por = + -
+    @).
+    """
     if isinstance(valor, str) and valor[:1] in ("=", "+", "-", "@", "\t", "\r"):
         return "'" + valor
     return valor

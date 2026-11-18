@@ -9,7 +9,11 @@ from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[2]
 
-RUTA_CONSULTAS = RAIZ / "data" / "consultas.csv"
+# Listado de consultas. Si existe LISTADO_CUFE.xlsx en la raíz (CUFE, NIT, Estado; fuera de
+# Git), el proceso arranca desde ahí; si no, usa los 10 CUFE de la prueba.
+RUTA_LISTADO = RAIZ / "LISTADO_CUFE.xlsx"
+RUTA_CONSULTAS_PRUEBA = RAIZ / "data" / "consultas.csv"
+RUTA_CONSULTAS = RUTA_LISTADO if RUTA_LISTADO.is_file() else RUTA_CONSULTAS_PRUEBA
 DIR_SALIDA = RAIZ / "output"
 DIR_PDF = DIR_SALIDA / "pdf"
 DIR_IMG = DIR_SALIDA / "img"

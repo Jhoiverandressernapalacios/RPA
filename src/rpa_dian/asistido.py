@@ -63,6 +63,9 @@ class ConsultorAsistido:
         avisar: Callable[[str], None] = print,
         dormir: Callable[[float], None] = time.sleep,
     ):
+        """Recibe las dependencias que interactúan con el exterior (abrir el navegador,
+        portapapeles, consola, espera) para poder reemplazarlas en las pruebas.
+        """
         self.carpeta_descargas = carpeta_descargas
         self.espera_s = espera_s
         self.abrir_url = abrir_url
@@ -73,6 +76,10 @@ class ConsultorAsistido:
         self.dormir = dormir
 
     def consultar(self, consulta: Consulta, carpeta: Path, tiempos: dict[str, float]) -> Path:
+        """Abre la consulta de una factura en el navegador normal y espera a que su PDF llegue
+        completo a Descargas; lo valida, lo mueve a `carpeta` y devuelve su ruta. Lanza
+        TiempoAgotado si no llega un PDF válido a tiempo.
+        """
         inicio = time.time()
         desde = inicio - 1  # margen por la resolución de la hora de los archivos
         # Enlace oficial (el del QR de las facturas): abre el formulario con el CUFE escrito.
@@ -110,6 +117,7 @@ class ConsultorAsistido:
         )
 
     def _mover(self, origen: Path, destino: Path, tiempos: dict[str, float]) -> Path:
+        """Mueve el PDF de Descargas a la carpeta del proyecto y anota cuánto tardó."""
         t = time.time()
         destino.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(origen, destino)  # funciona aunque Descargas esté en otra unidad

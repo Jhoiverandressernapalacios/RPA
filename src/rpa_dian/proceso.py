@@ -21,6 +21,8 @@ from rpa_dian.ocr import detectar_lineas, leer_celda, leer_numero, leer_palabras
 
 @dataclass
 class Factura:
+    """Resultado de extraer una factura: encabezado, productos, imágenes y tiempos."""
+
     cufe: str
     encabezado: Encabezado
     productos: list[Producto]
@@ -30,6 +32,9 @@ class Factura:
 
 
 def procesar_pdf(ruta: Path, nit: str, carpeta_imagenes: Path) -> Factura:
+    """Extrae una factura completa: abre el PDF con el NIT, convierte cada página en imagen, lee el
+    encabezado y la tabla con OCR y mide el tiempo de cada etapa.
+    """
     inicio = time.monotonic()
     imagenes = pdf_a_imagenes(ruta, nit, carpeta_imagenes)
     conversion = time.monotonic() - inicio

@@ -34,6 +34,8 @@ PATRON_VALOR = re.compile(r"^(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d+))?$")
 
 @dataclass(frozen=True)
 class Encabezado:
+    """Datos del documento y del emisor que pide la prueba."""
+
     numero_factura: str
     fecha_emision: str  # ISO 8601: AAAA-MM-DD
     nit_emisor: str
@@ -77,6 +79,7 @@ def votar_numero(lecturas: Sequence[str]) -> str:
 
 
 def _numero_factura(texto: str) -> str:
+    """Número de factura tal como aparece (p. ej., 'FE-1234'); vacío si no está."""
     coincidencia = PATRON_NUMERO.search(texto)
     if not coincidencia:
         log.warning("No se encontró el número de factura")
@@ -85,6 +88,7 @@ def _numero_factura(texto: str) -> str:
 
 
 def _fecha_emision(texto: str) -> str:
+    """Fecha de emisión en formato AAAA-MM-DD; vacía si falta o es imposible."""
     coincidencia = PATRON_FECHA.search(texto)
     if not coincidencia:
         log.warning("No se encontró la fecha de emisión")
@@ -98,6 +102,7 @@ def _fecha_emision(texto: str) -> str:
 
 
 def _nit_emisor(texto: str) -> str:
+    """NIT del emisor solo con dígitos, sin puntos ni dígito de verificación."""
     coincidencia = PATRON_NIT.search(texto)
     if not coincidencia:
         log.warning("No se encontró el NIT del emisor")
@@ -120,19 +125,24 @@ class Palabra:
 
     @property
     def xc(self) -> float:
+        """Centro horizontal de la palabra."""
         return (self.x0 + self.x1) / 2
 
     @property
     def yc(self) -> float:
+        """Centro vertical de la palabra."""
         return (self.y0 + self.y1) / 2
 
     @property
     def alto(self) -> float:
+        """Alto de la palabra en píxeles."""
         return self.y1 - self.y0
 
 
 @dataclass(frozen=True)
 class Producto:
+    """Una fila de 'Detalles de Productos'; None en valores que no se pudieron leer."""
+
     codigo: str
     descripcion: str
     cantidad: float | None
@@ -163,6 +173,7 @@ def extraer_productos(
         en_fila = [w for w in cuerpo if arriba <= w.yc < abajo]
 
         def celda(columna: str, en_fila=en_fila) -> list[list[str]]:
+            """Texto de una columna en esta fila, agrupado por líneas."""
             return _lineas([w for w in en_fila if _en(w.xc, columnas[columna])])
 
         productos.append(
@@ -219,6 +230,7 @@ def producto_desde_textos(codigo: str, descripcion: str, cantidad: str, precio: 
     """Arma un producto con el texto OCR de cada celda (las celdas pueden tener varias líneas)."""
 
     def lineas(texto: str) -> list[str]:
+        """Líneas de texto no vacías de una celda, con los espacios normalizados."""
         return [" ".join(linea.split()) for linea in texto.splitlines() if linea.strip()]
 
     return Producto(
@@ -265,6 +277,9 @@ def _fin_de_tabla(palabras: Sequence[Palabra], anclas: dict[str, Palabra]) -> fl
 
 
 def _es_fin(palabra: Palabra, palabras: Sequence[Palabra], alto_tipico: float) -> bool:
+    """True si la palabra marca el fin de la tabla: el título 'Anticipos' (letra más grande), 'Notas
+    Finales' o el pie 'Hoja N de M'.
+    """
     nombre = _normalizar(palabra.texto)
     if nombre == "anticipos":  # título de sección: letra más grande que la tabla
         return palabra.alto >= 1.3 * alto_tipico
@@ -312,6 +327,7 @@ def _filas_por_numero(
 
 
 def _normalizar(texto: str) -> str:
+    """Minúsculas, sin tildes y sin puntuación final, para comparar encabezados."""
     sin_tildes = "".join(
         c for c in unicodedata.normalize("NFD", texto) if not unicodedata.combining(c)
     )
@@ -319,6 +335,9 @@ def _normalizar(texto: str) -> str:
 
 
 def _encabezados_tabla(palabras: Sequence[Palabra]) -> dict[str, Palabra] | None:
+    """Busca el encabezado de la tabla (Nro., Código, Descripción, U/M, Cantidad, Precio, Descuento)
+    y devuelve la palabra de cada columna; None si no está.
+    """
     for codigo in (w for w in palabras if _normalizar(w.texto) == "codigo"):
         banda = [w for w in palabras if abs(w.yc - codigo.yc) <= 1.5 * codigo.alto]
         anclas = {"codigo": codigo}
@@ -344,6 +363,9 @@ def _encabezados_tabla(palabras: Sequence[Palabra]) -> dict[str, Palabra] | None
 def _intervalos_de_columnas(
     anclas: dict[str, Palabra], lineas_verticales: Sequence[float] | None
 ) -> dict[str, tuple[float, float]]:
+    """Límites horizontales (x0, x1) de cada columna: entre líneas verticales de la cuadrícula o,
+    sin cuadrícula, a mitad de camino entre encabezados.
+    """
     lineas = sorted(lineas_verticales or [])
     if len(lineas) >= 2:
         tramos = list(zip(lineas, lineas[1:], strict=False))
@@ -360,6 +382,7 @@ def _intervalos_de_columnas(
 
 
 def _en(valor: float, tramo: tuple[float, float]) -> bool:
+    """True si el valor está dentro del tramo [inicio, fin)."""
     return tramo[0] <= valor < tramo[1]
 
 
@@ -375,4 +398,5 @@ def _lineas(palabras: list[Palabra]) -> list[list[str]]:
 
 
 def _valor(lineas: list[list[str]]) -> float | None:
+    """Convierte el texto de una celda numérica en float, ignorando el signo $."""
     return a_numero("".join(t for linea in lineas for t in linea if t != "$"))

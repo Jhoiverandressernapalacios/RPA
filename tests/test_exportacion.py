@@ -113,6 +113,14 @@ def test_escribe_un_csv_por_factura_y_el_consolidado(tmp_path):
     assert len(consolidado) == 3
 
 
+def test_el_consolidado_acumula_las_facturas_de_corridas_anteriores(tmp_path):
+    exportar([factura_con_dos_productos()], tmp_path)
+    exportar([factura_sin_productos()], tmp_path)  # segunda corrida: solo la factura nueva
+    consolidado = pd.read_csv(tmp_path / "consolidado.csv", encoding="utf-8-sig", dtype=str)
+    assert set(consolidado["cufe"]) == {CUFE_A, CUFE_B}
+    assert len(consolidado) == 3
+
+
 def test_el_csv_conserva_tildes_y_enes_y_los_codigos_como_texto(tmp_path):
     exportar([factura_con_dos_productos()], tmp_path)
     contenido = (tmp_path / f"{CUFE_A}.csv").read_bytes()

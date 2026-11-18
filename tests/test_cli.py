@@ -101,7 +101,7 @@ def test_descargar_con_los_cufe_de_la_prueba_marca_requiere_nit_sin_abrir_el_nav
         [
             "descargar",
             "--consultas",
-            str(config.RUTA_CONSULTAS),
+            str(config.RUTA_CONSULTAS_PRUEBA),
             "--salida",
             str(tmp_path / "pdf"),
             "--resultados",

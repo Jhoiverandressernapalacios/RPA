@@ -140,6 +140,8 @@ def tabla_metricas(
                 else None,
             }
         filas.append(fila)
+    if not filas:  # sin consultas en esta corrida: CSV vacío pero con encabezados
+        return pd.DataFrame(columns=["cufe", "estado", "detalle"])
     return pd.DataFrame(filas).rename(columns={"t_total": "t_descarga_total"})
 
 
@@ -221,6 +223,7 @@ _ETIQUETAS_TIEMPO = {
 
 
 def _filas_de_tiempo(tabla: pd.DataFrame) -> list[str]:
+    """Filas Markdown con el promedio y el total de cada etapa medida."""
     filas = []
     for columna, etiqueta in _ETIQUETAS_TIEMPO.items():
         if columna in tabla and tabla[columna].notna().any():
@@ -232,7 +235,10 @@ def _filas_de_tiempo(tabla: pd.DataFrame) -> list[str]:
 
 
 def _fila_detalle(fila: pd.Series) -> str:
+    """Fila Markdown del detalle de una consulta (CUFE recortado a 12 caracteres)."""
+
     def valor(columna: str, formato: str = "{:.1f}") -> str:
+        """Dato formateado de una columna; vacío si no se midió."""
         dato = fila.get(columna)
         return "" if dato is None or pd.isna(dato) else formato.format(dato)
 
@@ -246,4 +252,5 @@ def _fila_detalle(fila: pd.Series) -> str:
 
 
 def _porcentaje(valor: float) -> str:
+    """0.909 -> '90,9 %' (coma decimal, como en Colombia)."""
     return f"{valor * 100:.1f}".replace(".", ",") + " %"

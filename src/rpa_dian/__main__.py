@@ -13,9 +13,14 @@ from pathlib import Path
 
 from rpa_dian import config
 from rpa_dian.asistido import ConsultorAsistido
-from rpa_dian.consultas import leer_consultas
+from rpa_dian.consultas import VALIDADO, Consulta, leer_consultas, marcar_estado
 from rpa_dian.conversion import capa_de_texto
 from rpa_dian.descarga import (
+    ERROR,
+    OK,
+    REQUIERE_NIT,
+    SIN_RESULTADO,
+    TIMEOUT,
     Resultado,
     abrir_navegador,
     descargar_todas,
@@ -43,19 +48,50 @@ def descargar(
     - asistido: abre la consulta en el navegador normal y vigila la carpeta de Descargas.
     - automatico: Playwright (Cloudflare lo rechaza; se conserva como evidencia).
     """
-    lista = leer_consultas(consultas)
+    lista = _pendientes_de_descarga(leer_consultas(consultas), salida)
+
+    def registrar(resultado: Resultado) -> None:
+        """Escribe en la columna Estado del Excel cómo terminó la consulta (memoria)."""
+        marcar_estado(consultas, resultado.cufe, ESTADO_EN_LISTADO[resultado.estado])
+
     if not any(c.nit for c in lista):
-        obtenidos = descargar_todas(lista, None, salida)
+        obtenidos = descargar_todas(lista, None, salida, al_terminar=registrar)
     elif modo == "automatico":
         with abrir_navegador() as consultor:
-            obtenidos = descargar_todas(lista, consultor, salida)
+            obtenidos = descargar_todas(lista, consultor, salida, al_terminar=registrar)
     else:
         consultor = ConsultorAsistido(carpeta_descargas=carpeta_descargas, espera_s=espera)
-        obtenidos = descargar_todas(lista, consultor, salida)
+        obtenidos = descargar_todas(lista, consultor, salida, al_terminar=registrar)
     guardar_resultados(obtenidos, resultados)
     resumen = Counter(r.estado for r in obtenidos)
     log.info("Descarga terminada: %s; detalle en %s", dict(resumen), resultados)
     return obtenidos
+
+
+# Texto que se escribe en la columna Estado del Excel según cómo terminó la descarga.
+# "Validado" se escribe después, cuando la extracción de esa factura termina bien.
+ESTADO_EN_LISTADO = {
+    OK: "Descargado",
+    REQUIERE_NIT: "Pendiente: falta el NIT",
+    SIN_RESULTADO: "Pendiente: la DIAN no devolvió el documento",
+    TIMEOUT: "Pendiente: no llegó el PDF a tiempo",
+    ERROR: "Pendiente: error en la descarga",
+}
+
+
+def _pendientes_de_descarga(lista: list[Consulta], salida: Path) -> list[Consulta]:
+    """Quita las consultas que no hay que volver a descargar (memoria del Excel):
+    las ya validadas y las descargadas cuyo PDF ya está en la carpeta de salida."""
+    pendientes = []
+    for consulta in lista:
+        ya_descargada = (salida / f"{consulta.cufe}.pdf").is_file() and consulta.estado == (
+            ESTADO_EN_LISTADO[OK]
+        )
+        if consulta.validada or ya_descargada:
+            log.info("%s… %s: no se vuelve a descargar", consulta.cufe[:12], consulta.estado)
+        else:
+            pendientes.append(consulta)
+    return pendientes
 
 
 def extraer(
@@ -74,6 +110,9 @@ def extraer(
     facturas, capas, fallos = [], {}, {}
     for consulta in lista:
         pdf = entrada / f"{consulta.cufe}.pdf"
+        if consulta.validada:  # memoria: ya se extrajo en una corrida anterior
+            log.info("%s… ya validado: se omite", consulta.cufe[:12])
+            continue
         if not consulta.nit:
             log.info("%s… sin NIT: no se puede abrir el PDF", consulta.cufe[:12])
             continue
@@ -86,7 +125,9 @@ def extraer(
         except Exception as error:
             fallos[consulta.cufe] = detalle_seguro(error, consulta.cufe)
             log.warning("%s… error de extracción: %s", consulta.cufe[:12], fallos[consulta.cufe])
+            marcar_estado(consultas, consulta.cufe, "Pendiente: error al extraer el PDF")
             continue
+        marcar_estado(consultas, consulta.cufe, VALIDADO)  # descargado y extraído
         log.info(
             "%s… factura %s: %d productos en %.1f s",
             consulta.cufe[:12],
@@ -109,6 +150,9 @@ def _escribir_metricas(
     capas: dict[str, str],
     fallos: dict[str, str],
 ) -> None:
+    """Escribe metricas.csv e informe.md de esta corrida, uniendo los resultados de la descarga
+    (descargas.csv) de las mismas consultas.
+    """
     carpeta.mkdir(parents=True, exist_ok=True)
     descargas = carpeta / "descargas.csv"
     # Solo las descargas de estas consultas: la carpeta puede tener una corrida anterior.
@@ -133,6 +177,7 @@ def todo(consultas: Path, carpeta: Path, modo: str, carpeta_descargas: Path, esp
 
 
 def _argumentos(argv: list[str] | None) -> argparse.Namespace:
+    """Define y lee las opciones de la línea de comandos (con y sin subcomando)."""
     analizador = argparse.ArgumentParser(
         prog="python -m rpa_dian",
         description=__doc__,
@@ -161,6 +206,7 @@ def _argumentos(argv: list[str] | None) -> argparse.Namespace:
 
 
 def _opciones_de_descarga(analizador: argparse.ArgumentParser) -> None:
+    """Agrega las opciones de descarga (--modo, --descargas, --espera)."""
     analizador.add_argument(
         "--modo",
         choices=["asistido", "automatico"],
@@ -173,6 +219,9 @@ def _opciones_de_descarga(analizador: argparse.ArgumentParser) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Ejecuta el subcomando pedido (descargar, extraer) o, sin subcomando, el proceso completo.
+    Devuelve el código de salida (0 = sin errores fatales).
+    """
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     a = _argumentos(argv)
     if a.subcomando == "descargar":

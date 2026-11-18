@@ -104,6 +104,7 @@ def partir(texto: str, tamano: int) -> list[str]:
 
 
 def texto(pagina, x, y, contenido, tam=8, negrita=False, color=NEGRO):
+    """Escribe un texto en la página (Helvetica, normal o negrita) en la posición dada."""
     fuente = "hebo" if negrita else "helv"
     pagina.insert_text((x, y), contenido, fontsize=tam, fontname=fuente, color=color)
 
@@ -111,6 +112,7 @@ def texto(pagina, x, y, contenido, tam=8, negrita=False, color=NEGRO):
 def ancho(contenido, tam, negrita=False):
     # get_text_length subestima los caracteres con tilde en las fuentes base-14:
     # se mide la versión sin tildes, que tiene el mismo ancho visual.
+    """Ancho en puntos que ocupará el texto con la fuente y el tamaño indicados."""
     sin_tildes = "".join(
         c for c in unicodedata.normalize("NFD", contenido) if not unicodedata.combining(c)
     )
@@ -118,25 +120,32 @@ def ancho(contenido, tam, negrita=False):
 
 
 def centrado(pagina, x0, x1, y, contenido, tam=TAM_TABLA, negrita=False):
+    """Escribe el texto centrado entre x0 y x1 (celdas de la tabla)."""
     texto(pagina, (x0 + x1 - ancho(contenido, tam, negrita)) / 2, y, contenido, tam, negrita)
 
 
 def a_la_derecha(pagina, x1, y, contenido, tam=TAM_TABLA):
+    """Escribe el texto alineado a la derecha de x1 (valores en pesos)."""
     texto(pagina, x1 - 2 - ancho(contenido, tam), y, contenido, tam)
 
 
 def seccion(pagina, y, titulo):
+    """Dibuja el título de una sección con su línea verde; devuelve la y siguiente."""
     texto(pagina, 70, y, titulo, 10, negrita=True, color=GRIS)
     pagina.draw_line((28, y + 5), (567, y + 5), color=VERDE, width=2)
     return y + 20
 
 
 def campo(pagina, x, y, etiqueta, valor):
+    """Escribe una etiqueta en negrita seguida de su valor (p. ej., 'Nit del Emisor: …')."""
     texto(pagina, x, y, etiqueta, 7.5, negrita=True, color=GRIS)
     texto(pagina, x + ancho(etiqueta, 7.5, True) + 4, y, valor, 7.5)
 
 
 def dibujar_tabla(pagina, y, productos):
+    """Dibuja la tabla 'Detalles de Productos' con su cuadrícula; parte el código y la descripción
+    en varias líneas como la representación DIAN. Devuelve la y final.
+    """
     x_ini, x_fin = COLUMNAS["nro"][0], COLUMNAS["precio_venta"][1]
     encabezados = {
         "nro": ["Nro."],
@@ -172,6 +181,7 @@ def dibujar_tabla(pagina, y, productos):
         centro = y + alto / 2 + 2
 
         def bloque(clave, lineas_celda, centrar=True, centro=centro):
+            """Escribe las líneas de una celda centradas verticalmente en la fila."""
             x0, x1 = COLUMNAS[clave]
             inicio = centro - (len(lineas_celda) - 1) * ALTO_LINEA / 2
             for i, linea in enumerate(lineas_celda):
@@ -207,6 +217,9 @@ def dibujar_tabla(pagina, y, productos):
 
 
 def generar(factura: dict, carpeta: Path) -> dict:
+    """Crea una factura de EJEMPLO cifrada con su NIT y el JSON con los valores esperados; devuelve
+    esos valores.
+    """
     cufe = hashlib.sha384(factura["nombre"].encode()).hexdigest()
     doc = pymupdf.open()
     pagina = doc.new_page(width=ANCHO, height=ALTO)
@@ -268,6 +281,7 @@ def generar(factura: dict, carpeta: Path) -> dict:
 
 
 def main() -> None:
+    """Genera todas las facturas de ejemplo y su consultas.csv en la carpeta indicada."""
     carpeta = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("tests/fixtures/pdf")
     esperados = [generar(f, carpeta) for f in FACTURAS]
     with (carpeta / "consultas.csv").open("w", encoding="utf-8", newline="") as archivo:
