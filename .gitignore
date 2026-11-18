@@ -1,0 +1,21 @@
+# Entorno de Python
+.venv/
+__pycache__/
+*.egg-info/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Resultados del proceso (se generan al ejecutar)
+output/
+
+# Documento de la prueba: tendrá datos personales al diligenciarlo
+*.docx
+~$*
+
+# Sistema y editores
+.vscode/
+.idea/
+Thumbs.db
